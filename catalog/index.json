@@ -9,6 +9,7 @@
       "description": "侧边工作台（精简版）：文件树、文本查看 / 编辑、文件名和内容搜索、Git 状态 / diff / 暂存。",
       "license": "MIT",
       "homepage": "https://github.com/1316584746/M-Market",
+      "icon": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/plugins/better-sidebar/assets/icon.svg",
       "source": "https://github.com/1316584746/M-Market",
       "tags": [
         "files",
@@ -54,6 +55,7 @@
       "description": "billion-context 上下文压缩代理的管理器：一键安装 / 启动 / 停止，并给出 M-Harness 各模型提供方走代理的地址。",
       "license": "MIT",
       "homepage": "https://github.com/ranxianglei/billion-context",
+      "icon": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/plugins/billion-context/assets/icon.svg",
       "source": "https://github.com/1316584746/M-Market",
       "tags": [
         "context",
@@ -98,6 +100,7 @@
       "description": "上下文洞察：读取 M-Harness 的 trace，提供洞察总览（KPI、7 天用量、热力图、技能 / 工具 / 命令排行、会话卡片）和单个会话的 Context 详情（构成、走势、压缩、文件、命令、成本估算），支持中 / 英文，也给 AI 提供统计工具。",
       "license": "Apache-2.0",
       "homepage": "https://github.com/1316584746/M-Market",
+      "icon": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/plugins/context-insight/assets/icon.svg",
       "source": "https://github.com/1316584746/M-Market",
       "tags": [
         "context",
@@ -142,6 +145,7 @@
       "description": "GitHub console for M-Harness: repositories, files (read/edit/delete), branches, issues, pull requests (review/merge), Actions and releases, with AI tools for both reading and writing.",
       "license": "MIT",
       "homepage": "https://github.com/1316584746/M-Market",
+      "icon": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/plugins/github/assets/icon.svg",
       "source": "https://github.com/1316584746/M-Market",
       "tags": [
         "github",
@@ -187,6 +191,7 @@
       "description": "Plugin market for M-Harness: multi-source catalogs, search, one-click install/update/uninstall, favorites, groups, notes, and backup via JSON / WebDAV / private Gist.",
       "license": "MIT",
       "homepage": "https://github.com/1316584746/M-Market",
+      "icon": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/plugins/market/assets/icon.svg",
       "source": "https://github.com/1316584746/M-Market",
       "tags": [
         "market",
@@ -238,6 +243,7 @@
       "description": "给 M-Harness 的长期记忆：Markdown 存储、离线关键词检索、可挂载自己的笔记目录；AI 能通过 memory_search / memory_add 使用。",
       "license": "MIT",
       "homepage": "https://github.com/1316584746/M-Market",
+      "icon": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/plugins/memsearch/assets/icon.svg",
       "source": "https://github.com/1316584746/M-Market",
       "tags": [
         "memory",

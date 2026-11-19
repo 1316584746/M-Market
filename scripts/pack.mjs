@@ -132,6 +132,8 @@ function main() {
       description: m.description,
       license: m.license,
       homepage: m.homepage,
+      // 市场卡片里的图标：直接用源码目录里的 SVG（装之前就能看到，不用等装好）
+      icon: m.icon && /\/packages$/.test(BASE_URL) ? `${BASE_URL.replace(/\/packages$/, "")}/plugins/${m.id}/${m.icon}` : undefined,
       source: "https://github.com/1316584746/M-Market",
       tags: m.tags || [],
       permissions: m.permissions,
