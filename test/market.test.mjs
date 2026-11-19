@@ -73,6 +73,19 @@ before(async () => {
         }
         return send(200, { id, files: gists.get(id) });
       }
+      if (url.pathname === "/shots/index.json") return send(200, { schemaVersion: 1, plugins: [{ id: "demo", name: "Demo", source: "https://github.com/octo/demo", latestVersion: "1.0.0", versions: [{ version: "1.0.0", releasedAt: "2026-11-02", artifacts: [{ target: "universal", url: `${base}/pkg/memsearch.dbxp`, sha256: sha(pkg) }] }] }, { id: "curated", name: "Curated", source: "https://github.com/octo/curated", screenshots: ["https://raw.githubusercontent.com/octo/curated/HEAD/a.png", "http://evil.example.com/x.png"], latestVersion: "1.0.0", versions: [{ version: "1.0.0", artifacts: [{ target: "universal", url: `${base}/pkg/memsearch.dbxp`, sha256: sha(pkg) }] }] }] });
+      if (url.pathname === "/raw/octo/demo/HEAD/README.md") {
+        return send(200, [
+          "# demo",
+          "![build](https://img.shields.io/badge/build-passing-green.svg)",
+          "![shot](docs/one.png)",
+          '<img src="https://raw.githubusercontent.com/octo/demo/HEAD/two.png" width="300">',
+          "![blob](https://github.com/octo/demo/blob/main/three.png)",
+          "![att](https://github.com/user-attachments/assets/1111-2222)",
+          "![ext](https://example.com/evil.png)",
+          "![dup](docs/one.png)",
+        ].join("\n"), "text/markdown");
+      }
       send(404, "nope");
     });
   });
@@ -406,5 +419,60 @@ describe("market：AI 工具", () => {
     t = await p.tool("market_install", { id: "evil" });
     assert.equal(t.isError, true);
     assert.match(t.text, /校验失败/);
+  });
+});
+
+describe("market：新界面用到的数据", () => {
+  const shotsSetup = () => {
+    const home = tmpdir("mk");
+    const plugins = path.join(home, "plugins");
+    fs.mkdirSync(plugins, { recursive: true });
+    const p = start({ home, env: { HARNESS_PLUGINS_DIR: plugins, MARKET_RAW_BASE: `${base}/raw`, MARKET_DEFAULT_SOURCES: JSON.stringify([{ id: "shots", name: "S", url: `${base}/shots/index.json`, enabled: true }]) } });
+    return { home, p };
+  };
+
+  it("主题识别、最近更新、分类总数、更新数", async () => {
+    const { p } = setup();
+    await p.call("market/saveSettings", { sources: sources() });
+    const all = await p.call("market/list", { refresh: true, pageSize: 100 });
+    assert.equal(all.catTotal, 7);
+    assert.ok(all.recent.length >= 1 && all.recent.every(x => x.updated), "最近更新只放有日期的");
+    assert.ok(all.recent[0].updated >= all.recent[all.recent.length - 1].updated, "按日期从新到旧");
+    const themes = await p.call("market/list", { theme: true, pageSize: 100 });
+    assert.deepEqual(themes.items.map(x => x.id), ["dsh-cool-theme"]);
+    assert.equal(themes.recent.length, 0, "筛选状态下不返回最近更新");
+    assert.equal(all.counts.updates, 0);
+    const second = await p.call("market/list", { page: 2, pageSize: 3 });
+    assert.equal(second.recent.length, 0, "翻页时不重复返回最近更新");
+  });
+
+  it("截图：目录里写了就用目录的（只收 https）；没写就从 README 里挑，丢掉徽章和不明站点，结果有缓存", async () => {
+    const { p } = shotsSetup();
+    await p.call("market/list", { refresh: true });
+    const curated = await p.call("market/screenshots", { key: "shots:curated" });
+    assert.equal(curated.from, "catalog");
+    assert.deepEqual(curated.images, ["https://raw.githubusercontent.com/octo/curated/HEAD/a.png"]);
+    const r = await p.call("market/screenshots", { key: "shots:demo" });
+    assert.equal(r.from, "readme");
+    assert.deepEqual(r.images, [
+      "https://raw.githubusercontent.com/octo/demo/HEAD/docs/one.png",
+      "https://raw.githubusercontent.com/octo/demo/HEAD/two.png",
+      "https://raw.githubusercontent.com/octo/demo/main/three.png",
+      "https://github.com/user-attachments/assets/1111-2222",
+    ]);
+    assert.equal((await p.call("market/screenshots", { key: "shots:demo" })).from, "cache");
+    await assert.rejects(p.call("market/screenshots", { key: "shots:nope" }), /找不到/);
+  });
+
+  it("诊断日志：列出版本、来源和已装插件，不含令牌和本机用户目录", async () => {
+    const { home, p } = setup();
+    await p.call("market/saveSettings", { sources: sources(), gist: { token: "ghp_SECRET1234567890", gistId: "g1" } });
+    await p.call("market/list", { refresh: true });
+    const r = await p.call("market/diagnostics");
+    assert.match(r.text, /插件市场 \d+\.\d+\.\d+/);
+    assert.match(r.text, /本地 DBX/);
+    assert.doesNotMatch(r.text, /ghp_SECRET/);
+    assert.doesNotMatch(r.text, new RegExp(home.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&")));
+    assert.equal((await p.call("market/settings")).version.length > 0, true);
   });
 });

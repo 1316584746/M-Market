@@ -200,7 +200,9 @@
         "host.network:https://avatars.githubusercontent.com",
         "host.network:https://raw.githubusercontent.com",
         "host.network:https://dl.dbxio.com",
-        "host.network:https://cdn.jsdelivr.net"
+        "host.network:https://cdn.jsdelivr.net",
+        "host.network:https://user-images.githubusercontent.com",
+        "host.network:https://private-user-images.githubusercontent.com"
       ],
       "latestVersion": "0.1.0",
       "versions": [
@@ -211,8 +213,8 @@
             {
               "target": "universal",
               "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/market-0.1.0.dbxp",
-              "sha256": "1bc512188a0c1f3beed2ba044e4b0a6e4e14699c46e114ad9a2b5fb2a96339ae",
-              "size": 28978
+              "sha256": "a936b022715c9e3cb077ef677794d3867d109edb0f8ccd73291c4d60a0b1111e",
+              "size": 36515
             }
           ]
         }

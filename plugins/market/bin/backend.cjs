@@ -86,13 +86,14 @@ function getSources() {
   return out;
 }
 
+const CACHE_V = 2; // 条目字段变了就加一，旧缓存自动作废
 const mem = new Map(); // url -> { at, entries }
 const cacheFile = url => path.join(dataDir(), "cache-" + crypto.createHash("sha1").update(url).digest("hex").slice(0, 16) + ".json");
 
 function readDisk(url) {
   try {
     const j = JSON.parse(fs.readFileSync(cacheFile(url), "utf8"));
-    if (j && Array.isArray(j.entries)) return j;
+    if (j && j.v === CACHE_V && Array.isArray(j.entries)) return j;
   } catch {
     /* 没有缓存 */
   }
@@ -117,7 +118,7 @@ async function loadSource(src, force) {
       throw new Error("返回的内容不是 JSON（地址要指向目录文件本身）");
     }
     const entries = parseCatalog(json, src.id, LANG).map(e => ({ ...e, sourceName: src.name, sourceHost: u.host }));
-    const rec = { at: Date.now(), entries };
+    const rec = { v: CACHE_V, at: Date.now(), entries };
     mem.set(src.url, rec);
     try {
       fs.writeFileSync(cacheFile(src.url), JSON.stringify(rec));
@@ -215,6 +216,8 @@ async function list(p = {}) {
       updated: e.updated,
       stars: e.stars,
       icon: e.icon,
+      theme: !!e.theme,
+      screenshots: e.screenshots ?? [],
       homepage: e.homepage,
       repo: e.repo,
       source: e.source,
@@ -240,6 +243,11 @@ async function list(p = {}) {
     items.push(decorate(e));
   }
 
+  const items0 = items.slice();
+  const plain = view === "all" && !terms.length && !p.category && !p.tag && !p.group && !p.source && !p.kind && p.theme !== true;
+  const recent = plain && !(Number(p.page) > 1) ? items.filter(x => x.updated).sort((a, b) => b.updated.localeCompare(a.updated) || (b.stars ?? -1) - (a.stars ?? -1)).slice(0, 12) : [];
+
+  if (p.theme === true) items = items.filter(x => x.theme);
   if (view === "installed") items = items.filter(x => x.installed);
   else if (view === "favorites") items = items.filter(x => x.favorite);
   else if (view === "updates") items = items.filter(x => x.update);
@@ -256,6 +264,7 @@ async function list(p = {}) {
     for (const t of x.tags) tagCount.set(t, (tagCount.get(t) ?? 0) + 1);
   }
   const top = m => [...m].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 40).map(([name, count]) => ({ name, count }));
+  const catTotal = items.length;
   if (p.category) items = items.filter(x => x.category === p.category);
   if (p.tag) items = items.filter(x => x.tags.includes(String(p.tag)));
 
@@ -276,9 +285,11 @@ async function list(p = {}) {
     pages,
     items: items.slice((page - 1) * pageSize, page * pageSize),
     categories: top(catCount),
+    catTotal,
+    recent,
     tags: top(tagCount),
     groups: Object.entries(u.groups).map(([name, ids]) => ({ name, count: ids.length })),
-    counts: { favorites: u.favorites.length, installed: Object.keys(installed).length },
+    counts: { favorites: u.favorites.length, installed: Object.keys(installed).length, updates: items0.filter(x => x.update).length },
     sources,
     errors,
   };
@@ -313,6 +324,104 @@ async function remove(id) {
   if (id === process.env.DBX_PLUGIN_ID) throw new Error("不能在市场里卸载市场自己（它正在运行）");
   const ok = uninstall(String(id), pluginsRoot());
   return { removed: ok };
+}
+
+// ───────── 截图（从插件仓库的 README 里找图，和 DSH Market 一样只信 GitHub 托管的图） ─────────
+
+const SHOT_TTL = 7 * 24 * 3600 * 1000;
+const SHOT_HOSTS = ["raw.githubusercontent.com", "github.com", "user-images.githubusercontent.com", "private-user-images.githubusercontent.com"];
+const BADGE_RE = /(shields\.io|badge|badgen|travis-ci|codecov|coveralls|github\.com\/[^/]+\/[^/]+\/(actions|workflows)\/|\.svg(\?|$)|img\.shields|star-history|contrib\.rocks|visitor)/i;
+const shotsMem = new Map();
+
+/** 从 README 文本里取图片地址，转成绝对地址，丢掉徽章和不在白名单里的主机；最多 6 张 */
+function readmeImages(md, owner, repo, branch = "HEAD") {
+  const found = [];
+  const re = /!\[[^\]]*\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)|<img\b[^>]*?\bsrc\s*=\s*["']([^"']+)["']/gi;
+  let m;
+  while ((m = re.exec(md)) && found.length < 40) found.push(m[1] || m[2]);
+  const out = [];
+  for (let raw of found) {
+    raw = raw.trim();
+    let u;
+    try {
+      if (/^https?:\/\//i.test(raw)) u = new URL(raw);
+      else if (raw.startsWith("//")) u = new URL("https:" + raw);
+      else u = new URL(raw.replace(/^\.?\//, ""), `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/`);
+    } catch {
+      continue;
+    }
+    if (u.protocol !== "https:" || !SHOT_HOSTS.includes(u.hostname)) continue;
+    // github.com/<o>/<r>/blob/... 是网页，换成 raw 地址；其它 github.com 路径只放行上传的附件和 raw
+    if (u.hostname === "github.com") {
+      const bm = /^\/([^/]+)\/([^/]+)\/(?:blob|raw)\/(.+)$/.exec(u.pathname);
+      if (bm) u = new URL(`https://raw.githubusercontent.com/${bm[1]}/${bm[2]}/${bm[3]}`);
+      else if (!u.pathname.startsWith("/user-attachments/")) continue;
+    }
+    const s = u.toString();
+    if (BADGE_RE.test(s) || out.includes(s)) continue;
+    out.push(s);
+    if (out.length >= 6) break;
+  }
+  return out;
+}
+
+async function screenshots(ref) {
+  const e = await findEntry(ref);
+  if (!e) throw new Error("目录里找不到这个插件");
+  if (e.screenshots?.length) return { images: e.screenshots, from: "catalog" };
+  const m = /^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+?)(?:\.git)?\/?$/.exec(e.repo || "");
+  if (!m) return { images: [], from: "none" };
+  const key = `${m[1]}/${m[2]}`.toLowerCase();
+  const file = path.join(dataDir(), "shots-" + crypto.createHash("sha1").update(key).digest("hex").slice(0, 16) + ".json");
+  let hit = shotsMem.get(key);
+  if (!hit) {
+    try {
+      hit = JSON.parse(fs.readFileSync(file, "utf8"));
+    } catch {
+      /* 没有缓存 */
+    }
+  }
+  if (hit && Array.isArray(hit.images) && Date.now() - hit.at < SHOT_TTL) return { images: hit.images, from: "cache" };
+  const base = process.env.MARKET_RAW_BASE || "https://raw.githubusercontent.com";
+  let images = [];
+  for (const name of ["README.md", "readme.md", "README.MD"]) {
+    const r = await http(`${base}/${m[1]}/${m[2]}/HEAD/${name}`, { timeoutMs: 15000, max: 1024 * 1024 }).catch(() => null);
+    if (r && r.ok) {
+      images = readmeImages(text(r.buf), m[1], m[2]);
+      break;
+    }
+  }
+  const rec = { at: Date.now(), images };
+  shotsMem.set(key, rec);
+  try {
+    fs.writeFileSync(file, JSON.stringify(rec));
+  } catch {
+    /* 缓存写不了不影响使用 */
+  }
+  return { images, from: "readme" };
+}
+
+// ───────── 诊断日志（给反馈问题用：路径和密钥都会遮掉，不会发到任何地方） ─────────
+
+async function diagnostics() {
+  const home = harnessHome();
+  const rep = (s, from, to) => (from && from.length > 2 ? s.split(from).join(to) : s);
+  const mask = s => rep(rep(String(s ?? ""), home, "<M-Harness 目录>"), require("node:os").homedir(), "~").replace(/(ghp_|github_pat_|gho_)[A-Za-z0-9_]+/g, "$1***");
+  const installed = scanInstalled(pluginsRoot(), cmpVer);
+  const sources = getSources();
+  const lines = [`插件市场 ${VERSION}`, `时间：${new Date().toISOString()}`, `系统：${process.platform} ${process.arch}，Node ${process.version}`, `插件目录：${pluginsRoot()}`, "", "已安装的插件："];
+  const ids = Object.keys(installed);
+  if (!ids.length) lines.push("  （无）");
+  for (const id of ids) lines.push(`  ${id} ${installed[id].version}`);
+  lines.push("", "目录来源：");
+  const status = (await loadAll(false)).sources;
+  for (const s of sources) {
+    const st = status.find(x => x.id === s.id) || {};
+    lines.push(`  ${s.enabled ? "[开]" : "[关]"} ${s.name} ${s.url}  ${s.enabled ? `${st.count ?? 0} 个${st.at ? "，缓存于 " + new Date(st.at).toLocaleString() : ""}${st.error ? "，错误：" + st.error : ""}` : ""}`);
+  }
+  const u = user();
+  lines.push("", `收藏 ${u.favorites.length} 个，分组 ${Object.keys(u.groups).length} 个，备注 ${Object.keys(u.notes).length} 条`);
+  return { text: mask(lines.join("\n")) };
 }
 
 // ───────── 备份 / 还原 ─────────
@@ -432,6 +541,7 @@ function publicSettings() {
   const w = c.webdav || {};
   const g = c.gist || {};
   return {
+    version: VERSION,
     sources: getSources(),
     defaults: defaultSources(),
     webdav: { url: w.url || "", user: w.user || "", file: w.file || "", hasPassword: !!w.password },
@@ -483,6 +593,8 @@ const methods = {
   "market/list": p => list(p),
   "market/install": async p => install(p?.key ?? p?.uid ?? p?.id),
   "market/uninstall": p => remove(p?.id),
+  "market/screenshots": async p => screenshots(p?.key ?? p?.uid),
+  "market/diagnostics": async () => diagnostics(),
   "market/settings": async () => publicSettings(),
   "market/saveSettings": async p => saveSettings(p),
   "user/favorite": async p => {

@@ -1,0 +1,37 @@
+name: 插件收录
+description: 申请把一个 DBX 插件收录进官方仓库
+labels: [plugin]
+body:
+  - type: input
+    id: repo
+    attributes:
+      label: 插件仓库地址
+      placeholder: https://github.com/你/你的插件
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: 它做什么
+    validations:
+      required: true
+  - type: textarea
+    id: perms
+    attributes:
+      label: 申请的权限和原因
+      description: 把 manifest.json 里的 permissions 列出来，逐个说明为什么需要
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 自查
+      options:
+        - label: 是 DBX 格式（有 manifest.json，打成 .dbxp 带 checksums.json）
+          required: true
+        - label: 没有运行时依赖，或依赖已打进包里
+          required: true
+        - label: 源码公开，许可证允许收录
+          required: true
+        - label: 不含和市场 / 插件无关的数据收集
+          required: true

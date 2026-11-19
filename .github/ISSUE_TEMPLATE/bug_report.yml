@@ -1,0 +1,38 @@
+name: Bug 报告
+description: 某个插件或市场坏了
+labels: [bug]
+body:
+  - type: dropdown
+    id: plugin
+    attributes:
+      label: 哪个插件
+      options: [market（插件市场）, github, memsearch, context-insight, billion-context, better-sidebar, 安装包 / 目录 / 网站, 不确定]
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 插件版本
+      description: 市场标题旁边的 vX.Y.Z，或插件页里的版本
+    validations:
+      required: true
+  - type: input
+    id: harness
+    attributes:
+      label: M-Harness 版本和系统
+      placeholder: 例如 0.9.0 / Windows 11
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: 发生了什么
+      description: 做了什么操作、看到了什么、你期望看到什么
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: 日志
+      description: 如果是插件市场的问题，请点右上角「导出日志」，把内容贴在这里（路径和令牌已遮掉）。
+      render: text

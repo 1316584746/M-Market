@@ -1,0 +1,27 @@
+name: 功能建议
+description: 想让某个插件多做点什么
+labels: [enhancement]
+body:
+  - type: input
+    id: plugin
+    attributes:
+      label: 哪个插件
+      placeholder: market / github / memsearch …
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: 你想解决什么问题
+      description: 先说场景，再说方案
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: 你设想的做法
+  - type: textarea
+    id: limit
+    attributes:
+      label: 你知道的限制
+      description: 例如「插件沙箱里做不了」「需要宿主新接口」。不确定可以留空。

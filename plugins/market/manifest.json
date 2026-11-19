@@ -7,7 +7,7 @@
   "license": "MIT",
   "homepage": "https://github.com/1316584746/M-Market",
   "icon": "assets/icon.svg",
-  "permissions": ["fs.read", "fs.write", "net.connect:https", "host.network:https://github.com", "host.network:https://avatars.githubusercontent.com", "host.network:https://raw.githubusercontent.com", "host.network:https://dl.dbxio.com", "host.network:https://cdn.jsdelivr.net"],
+  "permissions": ["fs.read", "fs.write", "net.connect:https", "host.network:https://github.com", "host.network:https://avatars.githubusercontent.com", "host.network:https://raw.githubusercontent.com", "host.network:https://dl.dbxio.com", "host.network:https://cdn.jsdelivr.net", "host.network:https://user-images.githubusercontent.com", "host.network:https://private-user-images.githubusercontent.com"],
   "entrypoints": {
     "backend": { "executable": "bin/backend.cjs" },
     "ui": { "root": "ui", "entry": "ui/index.html" }

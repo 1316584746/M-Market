@@ -46,6 +46,9 @@ const localized = (v, lang) => {
   return str(v[lang]) ?? str(v[short]) ?? str(v.zh) ?? str(v.en) ?? Object.values(v).map(str).find(Boolean);
 };
 
+const THEME_RE = /(^|[^a-z])(theme|skin|themes|skins)([^a-z]|$)|主题|皮肤|配色/i;
+const isTheme = (...parts) => parts.some(p => typeof p === "string" && THEME_RE.test(p));
+
 const isoDay = x => (typeof x === "string" && /^\d{4}-\d{2}-\d{2}/.test(x) ? x.slice(0, 10) : undefined);
 const unixDay = ts => (typeof ts === "number" && ts > 0 ? new Date(ts * 1000).toISOString().slice(0, 10) : undefined);
 
@@ -82,6 +85,8 @@ function parseDbx(json, sourceName, lang = "zh-CN") {
       description: str(loc.description) ?? str(raw.description) ?? "",
       tags: Array.isArray(raw.tags) ? raw.tags.filter(t => typeof t === "string").slice(0, 8) : [],
       category: undefined,
+      theme: isTheme(...(Array.isArray(raw.tags) ? raw.tags : []), str(loc.name) ?? nameRaw),
+      screenshots: Array.isArray(raw.screenshots) ? raw.screenshots.map(web).filter(u => u && u.startsWith("https://")).slice(0, 6) : [],
       version: str(ver?.version) ?? latest,
       license: str(raw.license),
       updated: isoDay(ver?.releasedAt),
@@ -130,6 +135,8 @@ function parseDsh(json, sourceName, lang = "zh") {
       description: localized(raw.description, lang) ?? "",
       tags: [...(labels.includes("unconfirmed") ? ["未验证"] : []), ...kw].slice(0, 8),
       category: catTitle,
+      theme: isTheme(...(Array.isArray(meta.keywords) ? meta.keywords : []), name),
+      screenshots: [],
       version: best.version,
       license: str(raw.license),
       updated: unixDay(best.publishTimestamp) ?? unixDay(meta.sortKeys?.updated),

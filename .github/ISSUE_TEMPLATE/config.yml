@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 安全漏洞（请私下报告）
+    url: https://github.com/1316584746/M-Market/security/advisories/new
+    about: 不要在公开 issue 里贴漏洞细节，用 GitHub 的私下报告。
