@@ -158,11 +158,12 @@ function user() {
   const u = userStore.get();
   return {
     favorites: Array.isArray(u.favorites) ? u.favorites.filter(x => typeof x === "string") : [],
+    hidden: Array.isArray(u.hidden) ? u.hidden.filter(x => typeof x === "string") : [],
     groups: u.groups && typeof u.groups === "object" && !Array.isArray(u.groups) ? Object.fromEntries(Object.entries(u.groups).map(([k, v]) => [k, Array.isArray(v) ? v.filter(x => typeof x === "string") : []])) : {},
     notes: u.notes && typeof u.notes === "object" && !Array.isArray(u.notes) ? Object.fromEntries(Object.entries(u.notes).filter(([, v]) => typeof v === "string")) : {},
   };
 }
-const saveUser = u => userStore.set({ favorites: u.favorites, groups: u.groups, notes: u.notes });
+const saveUser = u => userStore.set({ favorites: u.favorites, hidden: u.hidden ?? [], groups: u.groups, notes: u.notes });
 const checkUid = uid => {
   if (typeof uid !== "string" || !/^(dbx|dsh):.{1,200}$/.test(uid)) throw new Error("插件标识不合法");
   return uid;
@@ -193,10 +194,11 @@ async function list(p = {}) {
   const installed = scanInstalled(pluginsRoot(), cmpVer);
   const u = user();
   const fav = new Set(u.favorites);
+  const hid = new Set(u.hidden);
   const groupsOf = new Map();
   for (const [g, ids] of Object.entries(u.groups)) for (const id of ids) groupsOf.set(id, [...(groupsOf.get(id) ?? []), g]);
 
-  const view = ["all", "installed", "favorites", "updates"].includes(p.view) ? p.view : "all";
+  const view = ["all", "installed", "favorites", "updates", "hidden"].includes(p.view) ? p.view : "all";
   const terms = String(p.q ?? "").toLowerCase().split(/\s+/).filter(Boolean);
   const decorate = e => {
     const uid = uidOf(e);
@@ -228,6 +230,7 @@ async function list(p = {}) {
       installed: local ? local.version : null,
       update: !!local && !!e.version && cmpVer(e.version, local.version) > 0,
       favorite: fav.has(uid),
+      hidden: hid.has(uid),
       groups: groupsOf.get(uid) ?? [],
       note: u.notes[uid] ?? "",
     };
@@ -245,8 +248,11 @@ async function list(p = {}) {
 
   const items0 = items.slice();
   const plain = view === "all" && !terms.length && !p.category && !p.tag && !p.group && !p.source && !p.kind && p.theme !== true;
-  const recent = plain && !(Number(p.page) > 1) ? items.filter(x => x.updated).sort((a, b) => b.updated.localeCompare(a.updated) || (b.stars ?? -1) - (a.stars ?? -1)).slice(0, 12) : [];
+  const recent = plain && !(Number(p.page) > 1) ? items.filter(x => x.updated && !x.hidden).sort((a, b) => b.updated.localeCompare(a.updated) || (b.stars ?? -1) - (a.stars ?? -1)).slice(0, 12) : [];
 
+  // 屏蔽的插件：只在「已屏蔽」里出现；已装的不受影响（屏蔽只是不想再看到它）
+  if (view === "hidden") items = items.filter(x => x.hidden);
+  else if (view === "all") items = items.filter(x => !x.hidden || x.installed);
   if (p.theme === true) items = items.filter(x => x.theme);
   if (view === "installed") items = items.filter(x => x.installed);
   else if (view === "favorites") items = items.filter(x => x.favorite);
@@ -289,7 +295,7 @@ async function list(p = {}) {
     recent,
     tags: top(tagCount),
     groups: Object.entries(u.groups).map(([name, ids]) => ({ name, count: ids.length })),
-    counts: { favorites: u.favorites.length, installed: Object.keys(installed).length, updates: items0.filter(x => x.update).length },
+    counts: { favorites: u.favorites.length, hidden: u.hidden.length, installed: Object.keys(installed).length, updates: items0.filter(x => x.update).length },
     sources,
     errors,
   };
@@ -318,6 +324,25 @@ async function install(ref) {
   if (sha256(r.buf) !== e.install.sha256.toLowerCase()) throw new Error("安装包校验失败（sha256 和目录里的不一致），已丢弃");
   const done = installBuffer(r.buf, pluginsRoot(), { id: e.id, version: e.version });
   return { ...done, message: done.backend ? `${done.name} ${done.version} 已安装。它带本机程序，第一次打开时 M-Harness 会让你确认信任。` : `${done.name} ${done.version} 已安装。` };
+}
+
+// 一键更新：把所有「有新版本」的已装插件逐个装一遍。一个失败不影响其他；市场自己正在运行，跳过（单独更新）。
+async function updateAll() {
+  const r = await list({ view: "updates", pageSize: 100 });
+  const updated = [];
+  const failed = [];
+  const skipped = [];
+  for (const x of r.items) {
+    if (x.id === process.env.DBX_PLUGIN_ID) { skipped.push({ id: x.id, name: x.name, reason: "市场自己正在运行，请单独更新它" }); continue; }
+    if (!x.installable) { skipped.push({ id: x.id, name: x.name, reason: x.noInstallReason || "不能在这里安装" }); continue; }
+    try {
+      await install(x.key);
+      updated.push({ id: x.id, name: x.name, from: x.installed, to: x.version });
+    } catch (e) {
+      failed.push({ id: x.id, name: x.name, error: String(e?.message ?? e) });
+    }
+  }
+  return { updated, failed, skipped, message: `已更新 ${updated.length} 个${failed.length ? `，${failed.length} 个失败` : ""}${skipped.length ? `，${skipped.length} 个跳过` : ""}` };
 }
 
 async function remove(id) {
@@ -445,9 +470,11 @@ function importBackup(data, mode) {
   if (incoming.notes && typeof incoming.notes === "object") {
     for (const [k, v] of Object.entries(incoming.notes).slice(0, 5000)) if (typeof v === "string" && /^(dbx|dsh):/.test(k) && k !== "__proto__") inNotes[k] = v.slice(0, 2000);
   }
-  const cur = mode === "replace" ? { favorites: [], groups: {}, notes: {} } : user();
+  const inHidden = Array.isArray(incoming.hidden) ? incoming.hidden.filter(x => typeof x === "string" && /^(dbx|dsh):/.test(x)).slice(0, 5000) : [];
+  const cur = mode === "replace" ? { favorites: [], hidden: [], groups: {}, notes: {} } : user();
   const merged = {
     favorites: [...new Set([...cur.favorites, ...inFav])],
+    hidden: [...new Set([...cur.hidden, ...inHidden])],
     groups: { ...cur.groups },
     notes: { ...cur.notes, ...inNotes },
   };
@@ -593,6 +620,15 @@ const methods = {
   "market/list": p => list(p),
   "market/install": async p => install(p?.key ?? p?.uid ?? p?.id),
   "market/uninstall": p => remove(p?.id),
+  "market/updateAll": async () => updateAll(),
+  "user/hide": async p => {
+    const uid = checkUid(p?.uid);
+    const u = user();
+    u.hidden = u.hidden.filter(x => x !== uid);
+    if (p?.on !== false) u.hidden.unshift(uid);
+    saveUser(u);
+    return { hidden: p?.on !== false };
+  },
   "market/screenshots": async p => screenshots(p?.key ?? p?.uid),
   "market/diagnostics": async () => diagnostics(),
   "market/settings": async () => publicSettings(),

@@ -1,0 +1,30 @@
+name: release
+
+# 打一个 v* 标签就发一个 GitHub Release：把当前的 .dbxp 安装包和目录一起挂上去。
+# 市场自己的安装地址仍然是 raw.githubusercontent.com 上的 packages/，Release 只是给人手动下载 / 留档用。
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: 包和目录必须是最新的
+        run: node scripts/pack.mjs --check
+      - name: 测试
+        run: node --test test/*.test.mjs
+      - name: 发布
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            packages/*.dbxp
+            catalog/index.json

@@ -265,6 +265,51 @@ describe("market：安装 / 更新 / 卸载", () => {
   });
 });
 
+describe("market：全部更新 / 屏蔽", () => {
+  it("全部更新：逐个更新有新版的插件；没有可更新的时返回 0", async () => {
+    const { p, plugins } = setup();
+    await p.call("market/saveSettings", { sources: sources() });
+    assert.equal((await p.call("market/updateAll")).updated.length, 0);
+    await p.call("market/install", { id: "memsearch" });
+    const vdir = path.join(plugins, "memsearch", "versions");
+    fs.renameSync(path.join(vdir, memsearchVersion), path.join(vdir, "0.0.1"));
+    assert.equal((await p.call("market/list")).counts.updates, 1);
+    const r = await p.call("market/updateAll");
+    assert.deepEqual(r.updated.map(x => [x.id, x.from, x.to]), [["memsearch", "0.0.1", memsearchVersion]]);
+    assert.deepEqual(r.failed, []);
+    assert.match(r.message, /已更新 1 个/);
+    assert.equal((await p.call("market/list")).counts.updates, 0);
+    assert.deepEqual(fs.readdirSync(vdir), [memsearchVersion]);
+  });
+
+  it("屏蔽：从「发现」和最近更新里消失，只在「已屏蔽」里；已装的不受影响；可取消；进备份", async () => {
+    const { p } = setup();
+    await p.call("market/saveSettings", { sources: sources() });
+    const all = (await p.call("market/list", { pageSize: 100 })).total;
+    await p.call("user/hide", { uid: "dsh:dsh-lint", on: true });
+    let r = await p.call("market/list", { pageSize: 100 });
+    assert.equal(r.total, all - 1);
+    assert.ok(!r.items.some(x => x.id === "dsh-lint") && !r.recent.some(x => x.id === "dsh-lint"));
+    assert.equal(r.counts.hidden, 1);
+    r = await p.call("market/list", { view: "hidden" });
+    assert.deepEqual(r.items.map(x => [x.id, x.hidden]), [["dsh-lint", true]]);
+    const backup = await p.call("backup/export");
+    assert.deepEqual(backup.user.hidden, ["dsh:dsh-lint"]);
+    const q = setup().p;
+    await q.call("backup/import", { data: backup, mode: "merge" });
+    assert.equal((await q.call("market/list", { view: "hidden" })).total, 1);
+    await p.call("user/hide", { uid: "dsh:dsh-lint", on: false });
+    assert.equal((await p.call("market/list", { pageSize: 100 })).total, all);
+    assert.equal((await p.call("market/list", { view: "hidden" })).total, 0);
+    // 已安装的插件即使被屏蔽，也还在「发现」里（屏蔽只是不想再看到没装的）
+    await p.call("market/install", { id: "memsearch" });
+    await p.call("user/hide", { uid: "dbx:memsearch", on: true });
+    r = await p.call("market/list", { pageSize: 100 });
+    assert.ok(r.items.some(x => x.id === "memsearch"));
+    await assert.rejects(p.call("user/hide", { uid: "memsearch" }), /不合法/);
+  });
+});
+
 describe("market：收藏 / 分组 / 备注", () => {
   it("收藏、分组、备注会体现在列表里，并能按它们筛选，也能搜到备注", async () => {
     const { p } = setup();

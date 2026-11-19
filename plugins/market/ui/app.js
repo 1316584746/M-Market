@@ -57,6 +57,7 @@
     const p = { q: S.q, kind: S.kind, sort: S.sort, source: S.source, category: S.category, tag: S.tag, pageSize: 30, page: S.page };
     if (S.tab === "themes") p.theme = true;
     if (S.tab === "favorites") p.view = "favorites";
+    if (S.tab === "hidden") p.view = "hidden";
     if (S.tab === "installed") { p.view = S.sub === "updates" ? "updates" : "installed"; p.group = S.group; }
     return Object.assign(p, more);
   }
@@ -87,6 +88,8 @@
     ti.innerHTML = "已安装" + (d.counts.installed ? ' <span class="n">(' + d.counts.installed + ")</span>" : "");
     const tf = document.querySelector('[data-tab="favorites"]');
     tf.innerHTML = "收藏" + (d.counts.favorites ? ' <span class="n">(' + d.counts.favorites + ")</span>" : "");
+    const th = document.querySelector('[data-tab="hidden"]');
+    th.innerHTML = "已屏蔽" + (d.counts.hidden ? ' <span class="n">(' + d.counts.hidden + ")</span>" : "");
     // 来源下拉
     const sel = $("source");
     const keep = S.source;
@@ -98,6 +101,7 @@
     const empty = S.q || S.category || S.tag || S.group || S.source || S.kind
       ? "没有符合条件的插件"
       : S.tab === "favorites" ? "还没有收藏：在插件卡片上点书签图标"
+      : S.tab === "hidden" ? "没有屏蔽任何插件：在卡片的「···」菜单里可以屏蔽不想再看到的插件"
       : S.tab === "installed" ? (S.sub === "updates" ? "没有可更新的插件" : "还没有安装任何插件")
       : S.tab === "themes" ? "目录里没有识别为主题的插件"
       : "目录是空的：到「备份与来源」里检查来源";
@@ -116,6 +120,7 @@
     h += '<button class="cap' + (S.sub === "updates" ? " on" : "") + '" data-sub="updates">有更新 <span class="c">' + d.counts.updates + "</span></button>";
     d.groups.forEach(g => { h += '<button class="cap' + (S.group === g.name ? " on" : "") + '" data-group="' + esc(g.name) + '">' + esc(g.name) + ' <span class="c">' + g.count + "</span></button>"; });
     h += '<button class="cap add" data-act="newgroup">＋ 新建分组</button>';
+    if (d.counts.updates) h += '<button class="ibtn on" data-act="updateall">全部更新（' + d.counts.updates + "）</button>";
     if (S.group) h += '<button class="ibtn" data-act="renamegroup">重命名</button><button class="ibtn warn" data-act="delgroup">删除分组</button>';
     el.innerHTML = h;
   }
@@ -175,6 +180,7 @@
     const m = $("menu");
     const u = esc(x.uid);
     let h = '<button data-m="detail" data-uid="' + u + '">详情</button><button data-m="group" data-uid="' + u + '">分组' + (x.groups.length ? "（" + x.groups.length + "）" : "") + '</button><button data-m="note" data-uid="' + u + '">' + (x.note ? "改备注" : "写备注") + "</button>";
+    h += '<button data-m="hide" data-uid="' + u + '">' + (x.hidden ? "取消屏蔽" : "屏蔽") + "</button>";
     if (x.kind === "dbx" && x.installed) h += '<button class="danger" data-m="remove" data-uid="' + u + '">卸载</button>';
     m.innerHTML = h;
     m.hidden = false;
@@ -194,6 +200,7 @@
     else if (k === "group") doGroup(x);
     else if (k === "note") doNote(x);
     else if (k === "remove") doRemove(x);
+    else if (k === "hide") call("user/hide", { uid: x.uid, on: !x.hidden }).then(() => { toast(x.hidden ? "已取消屏蔽" : "已屏蔽 " + x.name); return load(); }).catch(fail);
   });
   window.addEventListener("scroll", closeMenu, true);
 
@@ -210,6 +217,22 @@
       this.disabled = true;
       this.textContent = "下载安装中…";
       call("market/install", { key: x.key }, 240000).then(r => { closeDialog(); toast(r.message || "已安装"); return load(); }).catch(e => { closeDialog(); fail(e); });
+    };
+  }
+
+  function doUpdateAll() {
+    const n = S.data ? S.data.counts.updates : 0;
+    const d = openDialog("<h3>全部更新（" + n + " 个）</h3><p class=\"hint\">会逐个下载并按 sha256 校验后更新，一个失败不影响其他。插件市场自己正在运行，会跳过，请单独更新它。</p>" + foot(btn("ghost", "取消", 'data-dlg="cancel"') + btn("primary", "开始更新", 'data-dlg="ok"')));
+    d.querySelector('[data-dlg="cancel"]').onclick = closeDialog;
+    d.querySelector('[data-dlg="ok"]').onclick = function () {
+      this.disabled = true;
+      this.textContent = "更新中…";
+      call("market/updateAll", {}, 900000).then(r => {
+        closeDialog();
+        const bad = r.failed.concat(r.skipped).map(x => x.name + "：" + (x.error || x.reason)).join("；");
+        toast(r.message + (bad ? "（" + bad + "）" : ""));
+        return load();
+      }).catch(e => { closeDialog(); fail(e); });
     };
   }
 
@@ -245,6 +268,7 @@
     const links = [];
     if (repo) links.push(["仓库", repo]);
     if (x.homepage && x.homepage !== repo) links.push(["主页", x.homepage]);
+    if (gh) links.push(["更新记录", repo + "/releases"]);
     const d = openDialog(
       '<div class="r1" style="display:flex;gap:10px;align-items:center">' + icoOf(x) + '<div style="flex:1;min-width:0"><h3 style="margin:0">' + esc(x.name) + ' <span class="badge kind">' + (x.kind === "dbx" ? "DBX" : "DSH") + "</span></h3>" +
       '<div class="hint">' + [x.author, x.version && "v" + x.version, x.license, x.updated, x.stars != null && "★ " + x.stars].filter(Boolean).map(esc).join(" · ") + "</div></div>" + (x.kind === "dbx" && x.installed && !x.update ? '<button class="pill done" disabled>已安装</button>' : x.kind === "dbx" && x.installable ? btn("primary", x.installed ? "更新" : "安装", 'data-dlg="install"') : "") + "</div>" +
@@ -400,6 +424,7 @@
     if (act === "more") return load({ append: true });
     if (act === "hiderecent") { pref.set("hideRecent", "1"); return renderRecent(); }
     if (act === "showrecent") { pref.set("hideRecent", "0"); return renderRecent(); }
+    if (act === "updateall") return doUpdateAll();
     if (act === "newgroup") return askText("新建分组", "", n => { call("user/groupCreate", { name: n }).then(() => { closeDialog(); return load(); }).catch(fail); });
     if (act === "renamegroup") return askText("重命名分组", S.group, n => { call("user/groupRename", { from: S.group, to: n }).then(() => { S.group = n; closeDialog(); return load(); }).catch(fail); });
     if (act === "delgroup") {
