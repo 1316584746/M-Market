@@ -1,0 +1,40 @@
+name: site
+# 每天自动抓一次上游的 DSH 市场索引，合并本仓库的官方插件，重新生成网站并发布到 GitHub Pages。
+# 第一次用要在仓库 Settings → Pages 里把 Source 选成「GitHub Actions」。
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["site/**", "catalog/**", "packages/**", "scripts/build-site.mjs", ".github/workflows/site.yml"]
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/pack.mjs --check
+      - run: node scripts/build-site.mjs --aggregate
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site-dist
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

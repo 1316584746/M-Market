@@ -1,0 +1,46 @@
+{
+  "id": "github",
+  "name": "GitHub",
+  "version": "0.1.0",
+  "description": "GitHub console for M-Harness: repositories, files (read/edit/delete), branches, issues, pull requests (review/merge), Actions and releases, with AI tools for both reading and writing.",
+  "publisher": "M-Market",
+  "license": "MIT",
+  "homepage": "https://github.com/1316584746/M-Market",
+  "icon": "assets/icon.svg",
+  "permissions": ["net.connect:https", "host.network:https://avatars.githubusercontent.com"],
+  "entrypoints": {
+    "backend": { "executable": "bin/backend.cjs" },
+    "ui": { "root": "ui", "entry": "ui/index.html" }
+  },
+  "contributions": [
+    { "type": "workbench", "icon": "assets/icon.svg", "label": "GitHub" },
+    {
+      "type": "mcp",
+      "tools": {
+        "github_repos": { "description": "列出 / 搜索仓库" },
+        "github_read": { "description": "读目录或文件" },
+        "github_commits": { "description": "查看提交历史" },
+        "github_issues": { "description": "列出 Issue" },
+        "github_issue": { "description": "查看 Issue 和评论" },
+        "github_pulls": { "description": "列出 Pull Request" },
+        "github_pull": { "description": "查看 PR（含 diff）" },
+        "github_runs": { "description": "查看 Actions 运行记录" },
+        "github_issue_create": { "description": "新建 Issue" },
+        "github_issue_update": { "description": "修改 / 关闭 Issue" },
+        "github_comment": { "description": "评论 Issue / PR" },
+        "github_pull_create": { "description": "新建 PR" },
+        "github_pull_merge": { "description": "合并 PR" },
+        "github_pull_review": { "description": "评审 PR" },
+        "github_file_write": { "description": "创建 / 修改文件并提交" },
+        "github_branch_create": { "description": "新建分支" },
+        "github_run_rerun": { "description": "重跑 Actions" },
+        "github_release_create": { "description": "创建 Release" }
+      }
+    }
+  ],
+  "localizations": {
+    "zh-CN": { "name": "GitHub 管理台", "description": "GitHub 管理台：仓库、文件（查看 / 编辑 / 删除）、分支、Issue、Pull Request（评审 / 合并）、Actions、Release。AI 可读可写（写操作要你批准）。" },
+    "en": { "name": "GitHub", "description": "GitHub console for M-Harness: repositories, files (read/edit/delete), branches, issues, pull requests (review/merge), Actions and releases, with AI tools for both reading and writing." }
+  },
+  "tags": ["github", "git", "pull-request", "issues", "actions"]
+}

@@ -135,6 +135,100 @@
       }
     },
     {
+      "id": "github",
+      "name": "GitHub",
+      "publisher": "M-Market",
+      "description": "GitHub console for M-Harness: repositories, files (read/edit/delete), branches, issues, pull requests (review/merge), Actions and releases, with AI tools for both reading and writing.",
+      "license": "MIT",
+      "homepage": "https://github.com/1316584746/M-Market",
+      "source": "https://github.com/1316584746/M-Market",
+      "tags": [
+        "github",
+        "git",
+        "pull-request",
+        "issues",
+        "actions"
+      ],
+      "permissions": [
+        "net.connect:https",
+        "host.network:https://avatars.githubusercontent.com"
+      ],
+      "latestVersion": "0.1.0",
+      "versions": [
+        {
+          "version": "0.1.0",
+          "releasedAt": "2026-11-19",
+          "artifacts": [
+            {
+              "target": "universal",
+              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/github-0.1.0.dbxp",
+              "sha256": "ddfb446f8882819f0839efbdd8943b30aa5ed649df0bd28fbe034496876361f9",
+              "size": 26565
+            }
+          ]
+        }
+      ],
+      "localizations": {
+        "zh-CN": {
+          "name": "GitHub 管理台",
+          "description": "GitHub 管理台：仓库、文件（查看 / 编辑 / 删除）、分支、Issue、Pull Request（评审 / 合并）、Actions、Release。AI 可读可写（写操作要你批准）。"
+        },
+        "en": {
+          "name": "GitHub",
+          "description": "GitHub console for M-Harness: repositories, files (read/edit/delete), branches, issues, pull requests (review/merge), Actions and releases, with AI tools for both reading and writing."
+        }
+      }
+    },
+    {
+      "id": "market",
+      "name": "Plugin Market",
+      "publisher": "M-Market",
+      "description": "Plugin market for M-Harness: multi-source catalogs (DBX / DSH), search, one-click install/update/uninstall, favorites, groups, notes, and backup via JSON / WebDAV / private Gist.",
+      "license": "MIT",
+      "homepage": "https://github.com/1316584746/M-Market",
+      "source": "https://github.com/1316584746/M-Market",
+      "tags": [
+        "market",
+        "plugins",
+        "installer"
+      ],
+      "permissions": [
+        "fs.read",
+        "fs.write",
+        "net.connect:https",
+        "host.network:https://github.com",
+        "host.network:https://avatars.githubusercontent.com",
+        "host.network:https://raw.githubusercontent.com",
+        "host.network:https://dl.dbxio.com",
+        "host.network:https://cdn.jsdelivr.net"
+      ],
+      "latestVersion": "0.1.0",
+      "versions": [
+        {
+          "version": "0.1.0",
+          "releasedAt": "2026-11-19",
+          "artifacts": [
+            {
+              "target": "universal",
+              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/market-0.1.0.dbxp",
+              "sha256": "1bc512188a0c1f3beed2ba044e4b0a6e4e14699c46e114ad9a2b5fb2a96339ae",
+              "size": 28978
+            }
+          ]
+        }
+      ],
+      "localizations": {
+        "zh-CN": {
+          "name": "插件市场",
+          "description": "多来源插件市场（DBX / DSH 目录）：搜索筛选、一键安装 / 更新 / 卸载、收藏、分组、备注，备份还原支持 JSON、WebDAV、私有 Gist。AI 可搜索和安装插件。"
+        },
+        "en": {
+          "name": "Plugin Market",
+          "description": "Plugin market for M-Harness: multi-source catalogs (DBX / DSH), search, one-click install/update/uninstall, favorites, groups, notes, and backup via JSON / WebDAV / private Gist."
+        }
+      }
+    },
+    {
       "id": "memsearch",
       "name": "MemSearch",
       "publisher": "M-Market",

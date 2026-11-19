@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>插件市场</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<header class="top">
+  <input class="dbx-input" id="q" placeholder="搜索插件：名称、作者、标签、备注…" />
+  <select class="dbx-select" id="kind">
+    <option value="">全部类型</option>
+    <option value="dbx">DBX 插件（可直接安装）</option>
+    <option value="dsh">DSH 插件（仅浏览）</option>
+  </select>
+  <select class="dbx-select" id="sort">
+    <option value="">默认排序</option>
+    <option value="stars">按星标</option>
+    <option value="updated">按最近更新</option>
+    <option value="name">按名称</option>
+  </select>
+  <button class="dbx-btn" id="refresh" title="重新拉取目录">刷新</button>
+  <button class="dbx-btn" id="open-settings">来源与备份</button>
+</header>
+<div class="body">
+  <nav class="side" id="side"></nav>
+  <main>
+    <div id="notice"></div>
+    <div id="grid" class="grid"><div class="dbx-hint pad">加载中…</div></div>
+    <div id="pager" class="pager"></div>
+  </main>
+</div>
+<div id="modal" class="modal" hidden><div class="dlg" id="dlg"></div></div>
+<div id="toast" class="toast" hidden></div>
+<script src="app.js"></script>
+</body>
+</html>

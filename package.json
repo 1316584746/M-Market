@@ -3,11 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "M-Harness 瀹樻柟鎻掍欢浠撳簱锛欴BX 鏍煎紡鐨?.dbxp 鎻掍欢鍖呭拰 catalog/index.json",
+  "description": "M-Harness 官方插件仓库：DBX 格式的 .dbxp 插件包、catalog/index.json 和插件市场网站",
   "scripts": {
     "pack": "node scripts/pack.mjs",
     "check": "node scripts/pack.mjs --check",
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test test/*.test.mjs",
+    "site": "node scripts/build-site.mjs",
+    "site:aggregate": "node scripts/build-site.mjs --aggregate",
+    "dev:ui": "node scripts/dev-ui.mjs"
   },
   "engines": { "node": ">=20" },
   "license": "MIT"
