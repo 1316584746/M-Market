@@ -215,7 +215,23 @@ const methods = {
   },
   // 通知（GitHub 的「待办」）；经典令牌需要 notifications 权限
   "gh/notifications": async p => {
-    const r = await get("/notifications", { query: { all: p?.all ? "true" : "false", per_page: PER, page: pageOf(p?.page) } });
+    let r;
+    try {
+      r = await get("/notifications", { query: { all: p?.all ? "true" : "false", per_page: PER, page: pageOf(p?.page) } });
+    } catch (e) {
+      // 细粒度令牌（github_pat_…）GitHub 本来就不让读通知：这不是故障，给一句说明，不要当成插件出错
+      if (e instanceof GhError && e.status === 403 && /personal access token/i.test(e.message)) {
+        return {
+          items: [],
+          hasNext: false,
+          unsupported: m(
+            "通知接口不支持细粒度令牌（GitHub 的限制，不是插件的问题）。要看通知，请在「设置」里换成经典令牌（ghp_…），勾选 notifications 权限。",
+            "The notifications API does not accept fine-grained tokens (a GitHub limitation, not a plugin problem). To see notifications, switch to a classic token (ghp_…) with the notifications scope in Settings.",
+          ),
+        };
+      }
+      throw e;
+    }
     const items = r.data.map(n => ({
       id: n.id,
       title: n.subject?.title || "",
@@ -227,6 +243,34 @@ const methods = {
       updated: n.updated_at,
     }));
     return { items, hasNext: r.hasNext };
+  },
+  // 点仓库列表里的星标 / fork 数：看谁加了星标、有哪些 fork
+  "gh/stargazers": async p => {
+    const repo = repoOf(p?.repo);
+    const r = await get(`/repos/${repo}/stargazers`, { query: { per_page: PER, page: pageOf(p?.page) } });
+    return { items: r.data.map(userOf), hasNext: r.hasNext, page: pageOf(p?.page) };
+  },
+  "gh/forks": async p => {
+    const repo = repoOf(p?.repo);
+    const r = await get(`/repos/${repo}/forks`, { query: { per_page: PER, page: pageOf(p?.page), sort: "stargazers" } });
+    return { items: r.data.map(repoShape), hasNext: r.hasNext, page: pageOf(p?.page) };
+  },
+  // 探索：GitHub 没有官方的趋势接口，这里用「时间范围内新建的仓库，按星标排序」近似；period=all 则取星标 5000 以上的老牌项目
+  "gh/explore": async p => {
+    const period = ["day", "week", "month", "all"].includes(p?.period) ? p.period : "week";
+    const safe = (v, label) => {
+      const s = String(v ?? "").trim();
+      if (!s) return "";
+      if (!/^[A-Za-z0-9+#._-]{1,40}$/.test(s)) throw new Error(m(`${label}不合法`, `Invalid ${label === "语言" ? "language" : "topic"}`));
+      return s;
+    };
+    const language = safe(p?.language, "语言");
+    const topic = safe(p?.topic, "话题");
+    const days = { day: 1, week: 7, month: 30 }[period];
+    const since = days ? new Date(Date.now() - days * 86400000).toISOString().slice(0, 10) : "";
+    const q = [since ? `created:>${since}` : "stars:>5000", language && `language:${language}`, topic && `topic:${topic}`, "archived:false"].filter(Boolean).join(" ");
+    const r = await get("/search/repositories", { query: { q, sort: "stars", order: "desc", per_page: PER, page: pageOf(p?.page) } });
+    return { items: (r.data.items || []).map(repoShape), hasNext: r.hasNext && pageOf(p?.page) < 30, page: pageOf(p?.page), period };
   },
   "gh/markRead": async p => {
     if (p?.id) await request("PATCH", `/notifications/threads/${encodeURIComponent(String(p.id))}`);

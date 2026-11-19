@@ -255,6 +255,49 @@ describe("github：写操作", () => {
   });
 });
 
+describe("github：探索 / 星标与 fork 列表 / 通知兼容", () => {
+  it("星标和 fork 列表可以不进仓库就看；仓库名不合法被拒绝", async () => {
+    const p = await login();
+    const s = await p.call("gh/stargazers", { repo: "me/app" });
+    assert.deepEqual(s.items.map(x => x.login), ["me", "bob"]);
+    const f = await p.call("gh/forks", { repo: "me/app" });
+    assert.deepEqual(f.items.map(x => [x.full, x.stars, x.fork]), [["bob/app", 5, true]]);
+    await assert.rejects(p.call("gh/stargazers", { repo: "not-a-repo" }), /所有者\/仓库名/);
+  });
+
+  it("探索：按时间范围 / 语言 / 话题拼搜索条件，按星标排序；非法的语言和话题被拒绝", async () => {
+    const p = await login();
+    const day = d => new Date(Date.now() - d * 86400000).toISOString().slice(0, 10);
+    await p.call("gh/explore", { period: "week", language: "Rust", topic: "cli" });
+    assert.equal(state.lastSearch.sort, "stars");
+    assert.equal(state.lastSearch.order, "desc");
+    assert.match(state.lastSearch.q, new RegExp(`created:>(${day(7)}|${day(6)}|${day(8)}) language:Rust topic:cli archived:false`));
+    await p.call("gh/explore", { period: "all" });
+    assert.equal(state.lastSearch.q, "stars:>5000 archived:false");
+    await p.call("gh/explore", { period: "bogus" });
+    assert.match(state.lastSearch.q, /^created:>/, "不认识的范围按本周");
+    await assert.rejects(p.call("gh/explore", { language: "a b" }), /语言不合法/);
+    await assert.rejects(p.call("gh/explore", { topic: "x y;z" }), /话题不合法/);
+    const r = await p.call("gh/explore", { period: "day" });
+    assert.equal(r.items[0].full, "x/found");
+  });
+
+  it("细粒度令牌读不了通知：返回说明而不是报错（不会弹出插件出错）；英文界面给英文说明", async () => {
+    const p = await login();
+    state.fineGrained = true;
+    try {
+      const r = await p.call("gh/notifications", {});
+      assert.deepEqual(r.items, []);
+      assert.match(r.unsupported, /细粒度令牌.*经典令牌.*notifications/);
+      const en = await p.call("gh/notifications", { lang: "en" });
+      assert.match(en.unsupported, /fine-grained tokens.*classic token.*notifications/);
+    } finally {
+      state.fineGrained = false;
+    }
+    assert.equal((await p.call("gh/notifications", {})).items.length, 2, "经典令牌照常能读");
+  });
+});
+
 describe("github：错误处理", () => {
   it("速率限制给出恢复时间；令牌失效提示重新填写", async () => {
     const p = await login();

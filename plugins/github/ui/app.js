@@ -63,6 +63,7 @@
     search: '<circle cx="7" cy="7" r="4.6"/><path d="M10.5 10.5L14 14"/>',
     lock: '<rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.2 7V5a2.8 2.8 0 0 1 5.6 0v2"/>',
     refresh: '<path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.5v3h-3"/>',
+    compass: '<circle cx="8" cy="8" r="6.2"/><path d="M10.9 5.1L9.2 9.2 5.1 10.9 6.8 6.8z"/>',
   };
   function ic(name) { return '<svg class="ic" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICONS[name] + "</svg>"; }
 
@@ -127,7 +128,7 @@
     $("who").innerHTML = S.me ? (S.apiBase ? '<span class="chip host" title="' + esc(S.apiBase) + '">' + esc(hostOf(S.apiBase)) + "</span>" : "") + avatar(S.me) + "<span>" + esc(S.me.login) + '</span><button class="dbx-btn" id="b-settings">' + esc(t("设置")) + "</button>" : "";
     if (S.me) $("b-settings").onclick = openSettings;
   }
-  var VIEW_TITLE = { repos: "仓库", issues: "Issues", pulls: "Pull Requests", notifs: "通知" };
+  var VIEW_TITLE = { repos: "仓库", issues: "Issues", pulls: "Pull Requests", notifs: "通知", explore: "探索" };
   function renderCrumb(extra) {
     var h;
     if (S.repo) {
@@ -161,6 +162,8 @@
       h += item("issues", "issue", "Issues", S.view === "issues");
       h += item("pulls", "pr", "Pull Requests", S.view === "pulls");
       h += item("notifs", "bell", "通知", S.view === "notifs");
+      h += '<div class="sb-h">' + esc(t("发现")) + "</div>";
+      h += item("explore", "compass", "探索", S.view === "explore");
     }
     side.innerHTML = h;
     each(side, "[data-nav]", function (a) {
@@ -205,7 +208,7 @@
   function navTo(v) {
     S.repo = null; S.view = v; S.seq++;
     document.body.classList.remove("no-side");
-    ({ repos: showRepos, issues: function () { showWork("issues"); }, pulls: function () { showWork("pulls"); }, notifs: showNotifs })[v]();
+    ({ repos: showRepos, issues: function () { showWork("issues"); }, pulls: function () { showWork("pulls"); }, notifs: showNotifs, explore: showExplore })[v]();
   }
 
   // ───────── 登录 / 设置 ─────────
@@ -261,12 +264,44 @@
     loadRepos();
   }
   function paintScopeTabs() { each($("r-tabs"), "[data-scope]", function (el) { el.classList.toggle("on", !repoQ.search && el.getAttribute("data-scope") === repoQ.scope); }); }
+  // 星标 / fork / Issue 数：点一下直接看对应的内容，不用先进仓库
+  function statBtns(stars, forks, issues) {
+    var b = function (k, icon, n, tip) { return '<span class="st" role="button" tabindex="0" data-stat="' + k + '" title="' + esc(tip) + '">' + ic(icon) + n + "</span>"; };
+    return b("stars", "star", stars, t("看谁加了星标")) + b("forks", "branch", forks, t("看 fork 列表")) + b("issues", "issue", issues, t("打开 Issues"));
+  }
+  function bindStats(root, fullOf) {
+    each(root, "[data-stat]", function (s) {
+      var go = function (e) { e.stopPropagation(); e.preventDefault(); openStat(fullOf(s), s.getAttribute("data-stat")); };
+      s.onclick = go;
+      s.onkeydown = function (e) { if (e.key === "Enter" || e.key === " ") go(e); };
+    });
+  }
+  function openStat(full, kind) {
+    if (kind === "issues") return openRepoAt(full, "issues");
+    var star = kind === "stars";
+    var draw = function (page) {
+      var title = star ? t("加星标的人 · {0}", full) : t("Fork 列表 · {0}", full);
+      var d = openDialog("<h3>" + esc(title) + "</h3>" + loading());
+      rpc(star ? "gh/stargazers" : "gh/forks", { repo: full, page: page }).then(function (r) {
+        var rows = r.items.map(function (x) {
+          return star
+            ? '<div class="li"><div class="main"><div class="t">' + avatar(x) + " " + esc(x.login) + "</div></div></div>"
+            : '<div class="li click" role="button" tabindex="0" data-fork="' + esc(x.full) + '">' + tile(x.name) + '<div class="main"><div class="t">' + esc(x.full) + '</div><div class="m">' + esc(x.description || "") + '</div></div><div class="side">' + ic("star") + (x.stars || 0) + "</div></div>";
+        }).join("");
+        d.innerHTML = "<h3>" + esc(title) + "</h3>" + (rows ? '<div class="list">' + rows + "</div>" + pager(page, r.hasNext) : empty(star ? "还没有人加星标" : "还没有 fork")) + '<div class="foot"><button class="dbx-btn" data-x="no">' + esc(t("关闭")) + "</button></div>";
+        d.querySelector('[data-x="no"]').onclick = closeDialog;
+        bindPager(d, draw);
+        each(d, "[data-fork]", function (el) { el.onclick = function () { var f = el.getAttribute("data-fork"); closeDialog(); openRepo(f); }; });
+      }).catch(function (e) { d.innerHTML = "<h3>" + esc(title) + "</h3>" + errBox(e) + '<div class="foot"><button class="dbx-btn" data-x="no">' + esc(t("关闭")) + "</button></div>"; d.querySelector('[data-x="no"]').onclick = closeDialog; });
+    };
+    draw(1);
+  }
   function repoRow(x) {
     var parts = x.full.split("/");
     return '<div class="rp click" role="button" tabindex="0" data-repo="' + esc(x.full) + '">' + tile(x.name, true) +
       '<div class="rp-m"><div class="rp-t"><span class="own">' + esc(parts[0]) + " / </span><b>" + esc(parts[1] || x.name) + "</b>" + (x.private ? ' <span class="lk" title="' + esc(t("私有")) + '">' + ic("lock") + "</span>" : "") + (x.fork ? ' <span class="lbl">fork</span>' : "") + (x.archived ? ' <span class="lbl">' + esc(t("已归档")) + "</span>" : "") + "</div>" +
       '<div class="rp-d">' + esc(x.description || "") + "</div></div>" +
-      '<div class="rp-r"><div class="stats">' + (x.language ? '<span class="lang-tag">' + esc(x.language) + "</span>" : "") + '<span class="st" title="Stars">' + ic("star") + (x.stars || 0) + '</span><span class="st" title="Forks">' + ic("branch") + (x.forks || 0) + '</span><span class="st" title="Open issues">' + ic("issue") + (x.issues || 0) + '</span></div><div class="when">' + esc(t("更新于 {0}", ago(x.updated))) + "</div></div></div>";
+      '<div class="rp-r"><div class="stats">' + (x.language ? '<span class="lang-tag">' + esc(x.language) + "</span>" : "") + statBtns(x.stars || 0, x.forks || 0, x.issues || 0) + '</div><div class="when">' + esc(t("更新于 {0}", ago(x.updated))) + "</div></div></div>";
   }
   function loadRepos() {
     var seq = ++S.seq;
@@ -279,8 +314,9 @@
       box.innerHTML = '<div class="list rplist">' + r.items.map(repoRow).join("") + "</div>" + pager(r.page, r.hasNext);
       each(box, "[data-repo]", function (el) {
         var go = function () { openRepo(el.getAttribute("data-repo")); };
-        el.onclick = go; el.onkeydown = function (e) { if (e.key === "Enter") go(); };
+        el.onclick = go; el.onkeydown = function (e) { if (e.key === "Enter" && e.target === el) go(); };
       });
+      bindStats(box, function (s) { return s.closest("[data-repo]").getAttribute("data-repo"); });
       bindPager(box, function (p) { repoQ.page = p; loadRepos(); });
     }).catch(function (e) { if (seq === S.seq) box.innerHTML = errBox(e); });
   }
@@ -332,6 +368,7 @@
     box.innerHTML = loading();
     rpc("gh/notifications", notifQ).then(function (r) {
       if (seq !== S.seq) return;
+      if (r.unsupported) { box.innerHTML = '<div class="note">' + esc(r.unsupported) + "</div>"; return; }
       box.innerHTML = r.items.length ? '<div class="list">' + r.items.map(function (n, idx) {
         return '<div class="li click" role="button" tabindex="0" data-i="' + idx + '"><span class="dot ' + (n.unread ? "open" : "") + '"></span><div class="main"><div class="t">' + esc(n.title) + '</div><div class="m">' + esc(n.repo) + (n.number ? " #" + n.number : "") + " · " + esc(n.type) + " · " + esc(reasonText(n.reason)) + " · " + esc(ago(n.updated)) + "</div></div></div>";
       }).join("") + "</div>" + pager(notifQ.page, r.hasNext) : empty("没有通知");
@@ -345,6 +382,44 @@
         };
       });
       bindPager(box, function (p) { notifQ.page = p; loadNotifs(); });
+    }).catch(function (e) { if (seq === S.seq) box.innerHTML = errBox(e); });
+  }
+
+  // ───────── 探索（GitHub 的 Explore：看热门 / 新晋项目） ─────────
+  var exploreQ = { period: "week", language: "", topic: "", page: 1 };
+  var PERIODS = [["day", "今天"], ["week", "本周"], ["month", "本月"], ["all", "经典"]];
+  var LANGS = ["JavaScript", "TypeScript", "Python", "Go", "Rust", "Java", "C++", "C#", "Swift", "Kotlin", "PHP", "Ruby", "Shell", "HTML"];
+  var TOPICS = ["ai", "llm", "agent", "cli", "web", "game", "devops", "database", "security", "mobile", "machine-learning", "react", "vue", "docker"];
+  function showExplore() {
+    S.view = "explore"; S.repo = null; S.redo = showExplore;
+    renderCrumb(); paintSide();
+    view.innerHTML = '<div class="page-h"><h1>' + esc(t("探索")) + '</h1><span class="grow"></span></div>' +
+      '<div class="note">' + esc(t("GitHub 没有官方的趋势接口：「今天 / 本周 / 本月」是这段时间内新建、按星标排序的仓库，「经典」是星标 5000 以上的老牌项目。")) + "</div>" +
+      '<div class="tabs" id="x-tabs">' + PERIODS.map(function (p) { return '<div class="tab' + (exploreQ.period === p[0] ? " on" : "") + '" role="button" tabindex="0" data-p="' + p[0] + '">' + esc(t(p[1])) + "</div>"; }).join("") + "</div>" +
+      '<div class="bar"><select class="dbx-select" id="x-lang"><option value="">' + esc(t("任意语言")) + "</option>" + LANGS.map(function (l) { return '<option value="' + esc(l) + '">' + esc(l) + "</option>"; }).join("") + '</select><span class="grow"></span><button class="dbx-btn" id="x-refresh">' + ic("refresh") + " " + esc(t("刷新")) + "</button></div>" +
+      '<div class="chips2" id="x-topics">' + TOPICS.map(function (tp) { return '<span class="tp' + (exploreQ.topic === tp ? " on" : "") + '" role="button" tabindex="0" data-tp="' + esc(tp) + '">' + esc(tp) + "</span>"; }).join("") + '</div><div id="x-list">' + loading() + "</div>";
+    $("x-lang").value = exploreQ.language;
+    each($("x-tabs"), "[data-p]", function (el) { el.onclick = function () { exploreQ.period = el.getAttribute("data-p"); exploreQ.page = 1; showExplore(); }; });
+    $("x-lang").onchange = function () { exploreQ.language = $("x-lang").value; exploreQ.page = 1; loadExplore(); };
+    each($("x-topics"), "[data-tp]", function (el) {
+      el.onclick = function () { var v = el.getAttribute("data-tp"); exploreQ.topic = exploreQ.topic === v ? "" : v; exploreQ.page = 1; showExplore(); };
+    });
+    $("x-refresh").onclick = loadExplore;
+    loadExplore();
+  }
+  function loadExplore() {
+    var seq = ++S.seq, box = $("x-list"); if (!box) return;
+    box.innerHTML = loading();
+    rpc("gh/explore", exploreQ).then(function (r) {
+      if (seq !== S.seq) return;
+      if (!r.items.length) { box.innerHTML = empty("没有符合条件的仓库"); return; }
+      box.innerHTML = '<div class="list rplist">' + r.items.map(repoRow).join("") + "</div>" + pager(r.page, r.hasNext);
+      each(box, "[data-repo]", function (el) {
+        var go = function () { openRepo(el.getAttribute("data-repo")); };
+        el.onclick = go; el.onkeydown = function (e) { if (e.key === "Enter" && e.target === el) go(); };
+      });
+      bindStats(box, function (s) { return s.closest("[data-repo]").getAttribute("data-repo"); });
+      bindPager(box, function (p) { exploreQ.page = p; loadExplore(); });
     }).catch(function (e) { if (seq === S.seq) box.innerHTML = errBox(e); });
   }
 
@@ -362,7 +437,8 @@
     var r = S.repo;
     S.view = "repo"; S.redo = function () { renderRepoShell(); };
     renderCrumb(); paintSide();
-    view.innerHTML = '<div class="repo-h">' + tile(r.name, true) + '<div class="repo-ht"><h1>' + esc(r.full) + (r.private ? ' <span class="lk" title="' + esc(t("私有")) + '">' + ic("lock") + "</span>" : "") + '</h1><div class="dbx-hint">' + esc(r.description || t("（没有描述）")) + '</div></div><div class="stats"><span class="st" title="Stars">' + ic("star") + r.stars + '</span><span class="st" title="Forks">' + ic("branch") + r.forks + '</span><span class="st" title="Open issues">' + ic("issue") + r.issues + '</span></div></div><div class="dbx-hint repo-meta">' + esc(t("默认分支 {0}", r.branch)) + (r.permissions && !r.permissions.push ? ' · <span class="warn">' + esc(t("只读权限")) + "</span>" : "") + '</div><div id="tab-body"></div>';
+    view.innerHTML = '<div class="repo-h">' + tile(r.name, true) + '<div class="repo-ht"><h1>' + esc(r.full) + (r.private ? ' <span class="lk" title="' + esc(t("私有")) + '">' + ic("lock") + "</span>" : "") + '</h1><div class="dbx-hint">' + esc(r.description || t("（没有描述）")) + '</div></div><div class="stats">' + statBtns(r.stars, r.forks, r.issues) + '</div></div><div class="dbx-hint repo-meta">' + esc(t("默认分支 {0}", r.branch)) + (r.permissions && !r.permissions.push ? ' · <span class="warn">' + esc(t("只读权限")) + "</span>" : "") + '</div><div id="tab-body"></div>';
+    bindStats(view.querySelector(".repo-h"), function () { return r.full; });
     if (openN && (S.tab === "issues" || S.tab === "issue")) { S.tab = "issues"; paintSide(); return showIssue(openN); }
     if (openN && (S.tab === "pulls" || S.tab === "pull")) { S.tab = "pulls"; paintSide(); return showPull(openN); }
     setTab(S.tab);

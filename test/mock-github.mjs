@@ -33,7 +33,12 @@ export async function startMockGithub() {
 
       if (M("GET", /^\/user$/)) return send(200, user);
       if (M("GET", /^\/user\/repos$/)) return send(200, [repo, { ...repo, full_name: "me/other", name: "other", description: "else", private: false }]);
-      if (M("GET", /^\/search\/repositories$/)) return send(200, { items: [{ ...repo, full_name: "x/found", name: "found" }] });
+      if (M("GET", /^\/search\/repositories$/)) {
+        state.lastSearch = { q: url.searchParams.get("q"), sort: url.searchParams.get("sort"), order: url.searchParams.get("order") };
+        return send(200, { items: [{ ...repo, full_name: "x/found", name: "found" }] });
+      }
+      if (M("GET", /^\/repos\/me\/app\/stargazers$/)) return send(200, [user, { login: "bob", avatar_url: "https://avatars.githubusercontent.com/u/2?v=4" }]);
+      if (M("GET", /^\/repos\/me\/app\/forks$/)) return send(200, [{ ...repo, full_name: "bob/app", name: "app", owner: { login: "bob" }, private: false, fork: true, stargazers_count: 5 }]);
       if (M("POST", /^\/user\/repos$/)) return send(201, { ...repo, full_name: `me/${body.name}`, name: body.name, private: body.private });
       if (M("GET", /^\/repos\/me\/app$/)) return send(200, repo);
       if (M("GET", /^\/repos\/me\/app\/branches$/)) return send(200, [{ name: "main", protected: true, commit: { sha: "a".repeat(40) } }, { name: "feature", protected: false, commit: { sha: "b".repeat(40) } }]);
@@ -63,6 +68,7 @@ export async function startMockGithub() {
 
       if (M("GET", /^\/repos\/me\/app\/issues$/)) return send(200, [issue(1), issue(2, { pull_request: {} }), issue(3, { state: "closed" })], { link: '<x>; rel="next"' });
       if (M("GET", /^\/user\/starred$/)) return send(200, [{ ...repo, full_name: "vuejs/core", name: "core", owner: { login: "vuejs" }, private: false, stargazers_count: 45000, description: "Vue 3 core" }]);
+      if (M("GET", /^\/notifications$/) && state.fineGrained) return send(403, { message: "Resource not accessible by personal access token" });
       if (M("GET", /^\/notifications$/)) return send(200, [{ id: "n1", unread: true, reason: "review_requested", updated_at: "2026-11-02T00:00:00Z", subject: { title: "pr 5", type: "PullRequest", url: "https://api.github.com/repos/me/app/pulls/5" }, repository: { full_name: "me/app" } }, { id: "n2", unread: false, reason: "mention", updated_at: "2026-11-01T00:00:00Z", subject: { title: "issue 1", type: "Issue", url: "https://api.github.com/repos/me/app/issues/1" }, repository: { full_name: "me/app" } }]);
       if (M("PATCH", /^\/notifications\/threads\/(\w+)$/) || M("PUT", /^\/notifications$/)) return send(205);
       if (M("GET", /^\/search\/issues$/)) {

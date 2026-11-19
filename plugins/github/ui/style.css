@@ -77,6 +77,7 @@ main { flex: 1; min-width: 0; overflow: auto; padding: 16px 24px 28px; }
 .li.click:hover { background: var(--color-muted); }
 .li .main { flex: 1; min-width: 0; }
 .li .t { font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.li .t img { width: 22px; height: 22px; border-radius: 50%; vertical-align: middle; margin-right: 6px; }
 .li .m { font-size: 12px; color: var(--color-muted-foreground); }
 .li .side { flex: none; text-align: right; font-size: 12px; color: var(--color-muted-foreground); }
 .dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 6px; flex: none; background: #9ca3af; }
@@ -98,6 +99,14 @@ main { flex: 1; min-width: 0; overflow: auto; padding: 16px 24px 28px; }
 .rp-r { flex: none; text-align: right; }
 .stats { display: flex; gap: 14px; align-items: center; justify-content: flex-end; color: var(--color-muted-foreground); font-size: 12px; }
 .st { display: inline-flex; align-items: center; gap: 4px; }
+/* 星标 / fork / Issue 数可以单独点：不用先进仓库 */
+.st[data-stat] { cursor: pointer; border-radius: 6px; padding: 1px 5px; margin: -1px -5px; }
+.st[data-stat]:hover, .st[data-stat]:focus-visible { background: var(--color-muted); color: var(--color-primary); outline: none; }
+.chips2 { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+.chips2 .tp { border: 1px solid var(--color-border); border-radius: 999px; padding: 1px 10px; font-size: 12px; cursor: pointer; color: var(--color-muted-foreground); user-select: none; }
+.chips2 .tp:hover { color: var(--color-foreground); }
+.chips2 .tp.on { background: var(--color-primary); color: var(--color-primary-foreground); border-color: var(--color-primary); }
+.note { margin: 0 0 10px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--color-border); background: var(--color-muted); color: var(--color-muted-foreground); font-size: 12px; }
 .lang-tag { font-size: 11px; padding: 0 8px; border-radius: 999px; background: var(--color-muted); }
 .when { margin-top: 2px; font-size: 12px; color: var(--color-muted-foreground); }
 .lk { color: var(--color-muted-foreground); }

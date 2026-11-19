@@ -158,17 +158,17 @@
         "net.connect:https",
         "host.network:https://avatars.githubusercontent.com"
       ],
-      "latestVersion": "0.2.0",
+      "latestVersion": "0.2.1",
       "versions": [
         {
-          "version": "0.2.0",
+          "version": "0.2.1",
           "releasedAt": "2026-11-19",
           "artifacts": [
             {
               "target": "universal",
-              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/github-0.2.0.dbxp",
-              "sha256": "87bbf907aef03c7ae46a157316e4edae7eb72d11688bb73bfcc4caf605ecc161",
-              "size": 39765
+              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/github-0.2.1.dbxp",
+              "sha256": "91fa3810391d4ea21158adcff0e05fd945be63c0e7876a1f8f78daa0c501891e",
+              "size": 42732
             }
           ]
         }
