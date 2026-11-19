@@ -3,7 +3,7 @@ import http from "node:http";
 
 export const TOKEN = "ghp_" + "a".repeat(30);
 export const log = []; // 记录所有写请求：{ method, path, body }
-export const state = { base: "", rateLimited: false };
+export const state = { base: "", rateLimited: false, starred: new Set(["me/other"]) };
 let server;
 
 const repo = { full_name: "me/app", name: "app", owner: { login: "me" }, private: true, description: "demo app", language: "TypeScript", stargazers_count: 3, forks_count: 1, open_issues_count: 2, pushed_at: "2026-11-01T00:00:00Z", default_branch: "main", html_url: "https://github.com/me/app", permissions: { push: true, admin: true } };
@@ -67,6 +67,9 @@ export async function startMockGithub() {
       if (M("GET", /^\/repos\/me\/app\/commits$/)) return send(200, [{ sha: "e".repeat(40), commit: { message: "first\n\nmore", author: { name: "Me", date: "2026-11-01T00:00:00Z" } }, author: user, html_url: "https://github.com/me/app/commit/e" }]);
 
       if (M("GET", /^\/repos\/me\/app\/issues$/)) return send(200, [issue(1), issue(2, { pull_request: {} }), issue(3, { state: "closed" })], { link: '<x>; rel="next"' });
+      if (M("GET", /^\/user\/starred\/([\w.-]+\/[\w.-]+)$/)) return state.starred.has(m[1]) ? send(204) : send(404, { message: "Not Found" });
+      if (M("PUT", /^\/user\/starred\/([\w.-]+\/[\w.-]+)$/)) { state.starred.add(m[1]); return send(204); }
+      if (M("DELETE", /^\/user\/starred\/([\w.-]+\/[\w.-]+)$/)) { state.starred.delete(m[1]); return send(204); }
       if (M("GET", /^\/user\/starred$/)) return send(200, [{ ...repo, full_name: "vuejs/core", name: "core", owner: { login: "vuejs" }, private: false, stargazers_count: 45000, description: "Vue 3 core" }]);
       if (M("GET", /^\/notifications$/) && state.fineGrained) return send(403, { message: "Resource not accessible by personal access token" });
       if (M("GET", /^\/notifications$/)) return send(200, [{ id: "n1", unread: true, reason: "review_requested", updated_at: "2026-11-02T00:00:00Z", subject: { title: "pr 5", type: "PullRequest", url: "https://api.github.com/repos/me/app/pulls/5" }, repository: { full_name: "me/app" } }, { id: "n2", unread: false, reason: "mention", updated_at: "2026-11-01T00:00:00Z", subject: { title: "issue 1", type: "Issue", url: "https://api.github.com/repos/me/app/issues/1" }, repository: { full_name: "me/app" } }]);

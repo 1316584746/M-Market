@@ -265,6 +265,20 @@ describe("github：探索 / 星标与 fork 列表 / 通知兼容", () => {
     await assert.rejects(p.call("gh/stargazers", { repo: "not-a-repo" }), /所有者\/仓库名/);
   });
 
+  it("加星标 / 取消星标：能查状态、显式设置、不传则翻转；仓库名不合法被拒绝", async () => {
+    const p = await login();
+    state.starred = new Set(["me/other"]);
+    const st = await p.call("gh/starState", { repos: ["me/app", "me/other"] });
+    assert.deepEqual(st.starred, { "me/app": false, "me/other": true });
+    assert.deepEqual(await p.call("gh/star", { repo: "me/app" }), { repo: "me/app", starred: true }, "不传 on = 翻转");
+    assert.ok(state.starred.has("me/app"));
+    assert.deepEqual(await p.call("gh/star", { repo: "me/app", on: true }), { repo: "me/app", starred: true }, "显式设置幂等");
+    assert.deepEqual(await p.call("gh/star", { repo: "me/app", on: false }), { repo: "me/app", starred: false });
+    assert.ok(!state.starred.has("me/app"));
+    await assert.rejects(p.call("gh/star", { repo: "nope" }), /所有者\/仓库名/);
+    await assert.rejects(p.call("gh/starState", { repos: ["nope"] }), /所有者\/仓库名/);
+  });
+
   it("探索：按时间范围 / 语言 / 话题拼搜索条件，按星标排序；非法的语言和话题被拒绝", async () => {
     const p = await login();
     const day = d => new Date(Date.now() - d * 86400000).toISOString().slice(0, 10);

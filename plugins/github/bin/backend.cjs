@@ -100,6 +100,16 @@ async function request(method, p, { query, body, raw, needAuth = true } = {}) {
   }
 }
 const get = (p, o) => request("GET", p, o);
+// 当前用户有没有给这个仓库加星标：204 = 加了，404 = 没加
+async function isStarred(repo) {
+  try {
+    await request("GET", `/user/starred/${repo}`);
+    return true;
+  } catch (e) {
+    if (e instanceof GhError && e.status === 404) return false;
+    throw e;
+  }
+}
 
 // ───────── 参数校验 ─────────
 
@@ -244,7 +254,33 @@ const methods = {
     }));
     return { items, hasNext: r.hasNext };
   },
-  // 点仓库列表里的星标 / fork 数：看谁加了星标、有哪些 fork
+  // 加星标 / 取消星标：on 不传 = 按当前状态翻转
+  "gh/star": async p => {
+    const repo = repoOf(p?.repo);
+    let on = typeof p?.on === "boolean" ? p.on : undefined;
+    if (on === undefined) on = !(await isStarred(repo));
+    await request(on ? "PUT" : "DELETE", `/user/starred/${repo}`);
+    return { repo, starred: on };
+  },
+  // 一批仓库各自有没有加过星标（列表上用来点亮星标图标）；查不出来的不返回，界面按「没加」处理
+  "gh/starState": async p => {
+    const repos = [...new Set((Array.isArray(p?.repos) ? p.repos : []).slice(0, 100).map(repoOf))];
+    const starred = {};
+    let i = 0;
+    const worker = async () => {
+      while (i < repos.length) {
+        const r = repos[i++];
+        try {
+          starred[r] = await isStarred(r);
+        } catch (e) {
+          if (e instanceof GhError && e.status === 401) throw e;
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(6, repos.length) }, worker));
+    return { starred };
+  },
+  // 看谁加了星标、有哪些 fork
   "gh/stargazers": async p => {
     const repo = repoOf(p?.repo);
     const r = await get(`/repos/${repo}/stargazers`, { query: { per_page: PER, page: pageOf(p?.page) } });

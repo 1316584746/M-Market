@@ -265,20 +265,46 @@
   }
   function paintScopeTabs() { each($("r-tabs"), "[data-scope]", function (el) { el.classList.toggle("on", !repoQ.search && el.getAttribute("data-scope") === repoQ.scope); }); }
   // 星标 / fork / Issue 数：点一下直接看对应的内容，不用先进仓库
-  function statBtns(stars, forks, issues) {
-    var b = function (k, icon, n, tip) { return '<span class="st" role="button" tabindex="0" data-stat="' + k + '" title="' + esc(tip) + '">' + ic(icon) + n + "</span>"; };
-    return b("stars", "star", stars, t("看谁加了星标")) + b("forks", "branch", forks, t("看 fork 列表")) + b("issues", "issue", issues, t("打开 Issues"));
+  // 星标数本身就是「加星标 / 取消星标」按钮（亮 = 已加）；who=true 时多一个「谁加了星标」入口
+  function statBtns(stars, forks, issues, who) {
+    var b = function (k, icon, n, tip, extra) { return '<span class="st" role="button" tabindex="0" data-stat="' + k + '" title="' + esc(tip) + '"' + (extra || "") + ">" + ic(icon) + '<span class="n">' + n + "</span></span>"; };
+    return b("star", "star", stars, t("加星标 / 取消星标")) + (who ? '<span class="st" role="button" tabindex="0" data-stat="stargazers" title="' + esc(t("看谁加了星标")) + '">' + esc(t("谁加了星标")) + "</span>" : "") + b("forks", "branch", forks, t("看 fork 列表")) + b("issues", "issue", issues, t("打开 Issues"));
   }
   function bindStats(root, fullOf) {
     each(root, "[data-stat]", function (s) {
-      var go = function (e) { e.stopPropagation(); e.preventDefault(); openStat(fullOf(s), s.getAttribute("data-stat")); };
+      var go = function (e) { e.stopPropagation(); e.preventDefault(); openStat(fullOf(s), s.getAttribute("data-stat"), s); };
       s.onclick = go;
       s.onkeydown = function (e) { if (e.key === "Enter" || e.key === " ") go(e); };
     });
   }
-  function openStat(full, kind) {
+  // 查这一批仓库有没有加过星标，把星标图标点亮
+  function syncStars(root, fullOf, fulls) {
+    if (!fulls.length) return;
+    rpc("gh/starState", { repos: fulls }).then(function (r) {
+      each(root, '[data-stat="star"]', function (s) {
+        var v = r.starred[fullOf(s)];
+        if (typeof v === "boolean") { s.classList.toggle("on", v); s.setAttribute("data-known", "1"); }
+      });
+    }).catch(function () { /* 查不到就算了：点一下时由后端按真实状态翻转 */ });
+  }
+  function toggleStar(full, el) {
+    if (el.getAttribute("data-busy")) return;
+    el.setAttribute("data-busy", "1");
+    var was = el.classList.contains("on"), known = !!el.getAttribute("data-known");
+    var args = { repo: full }; if (known) args.on = !was;
+    rpc("gh/star", args).then(function (r) {
+      var n = el.querySelector(".n"), num = Number(n.textContent) || 0;
+      if (!known || r.starred !== was) num += r.starred ? 1 : -1;
+      n.textContent = Math.max(0, num);
+      el.classList.toggle("on", r.starred); el.setAttribute("data-known", "1");
+      if (S.repo && S.repo.full === full) S.repo.stars = Math.max(0, num);
+      toast(r.starred ? t("已加星标 {0}", full) : t("已取消星标 {0}", full));
+    }).catch(fail).then(function () { el.removeAttribute("data-busy"); });
+  }
+  function openStat(full, kind, el) {
     if (kind === "issues") return openRepoAt(full, "issues");
-    var star = kind === "stars";
+    if (kind === "star") return toggleStar(full, el);
+    var star = kind === "stargazers";
     var draw = function (page) {
       var title = star ? t("加星标的人 · {0}", full) : t("Fork 列表 · {0}", full);
       var d = openDialog("<h3>" + esc(title) + "</h3>" + loading());
@@ -316,7 +342,10 @@
         var go = function () { openRepo(el.getAttribute("data-repo")); };
         el.onclick = go; el.onkeydown = function (e) { if (e.key === "Enter" && e.target === el) go(); };
       });
-      bindStats(box, function (s) { return s.closest("[data-repo]").getAttribute("data-repo"); });
+      var ofRow = function (s) { return s.closest("[data-repo]").getAttribute("data-repo"); };
+      bindStats(box, ofRow);
+      if (repoQ.scope === "starred" && !repoQ.search) each(box, '[data-stat="star"]', function (s) { s.classList.add("on"); s.setAttribute("data-known", "1"); });
+      else syncStars(box, ofRow, r.items.map(function (x) { return x.full; }));
       bindPager(box, function (p) { repoQ.page = p; loadRepos(); });
     }).catch(function (e) { if (seq === S.seq) box.innerHTML = errBox(e); });
   }
@@ -418,7 +447,9 @@
         var go = function () { openRepo(el.getAttribute("data-repo")); };
         el.onclick = go; el.onkeydown = function (e) { if (e.key === "Enter" && e.target === el) go(); };
       });
-      bindStats(box, function (s) { return s.closest("[data-repo]").getAttribute("data-repo"); });
+      var ofRow = function (s) { return s.closest("[data-repo]").getAttribute("data-repo"); };
+      bindStats(box, ofRow);
+      syncStars(box, ofRow, r.items.map(function (x) { return x.full; }));
       bindPager(box, function (p) { exploreQ.page = p; loadExplore(); });
     }).catch(function (e) { if (seq === S.seq) box.innerHTML = errBox(e); });
   }
@@ -437,8 +468,9 @@
     var r = S.repo;
     S.view = "repo"; S.redo = function () { renderRepoShell(); };
     renderCrumb(); paintSide();
-    view.innerHTML = '<div class="repo-h">' + tile(r.name, true) + '<div class="repo-ht"><h1>' + esc(r.full) + (r.private ? ' <span class="lk" title="' + esc(t("私有")) + '">' + ic("lock") + "</span>" : "") + '</h1><div class="dbx-hint">' + esc(r.description || t("（没有描述）")) + '</div></div><div class="stats">' + statBtns(r.stars, r.forks, r.issues) + '</div></div><div class="dbx-hint repo-meta">' + esc(t("默认分支 {0}", r.branch)) + (r.permissions && !r.permissions.push ? ' · <span class="warn">' + esc(t("只读权限")) + "</span>" : "") + '</div><div id="tab-body"></div>';
+    view.innerHTML = '<div class="repo-h">' + tile(r.name, true) + '<div class="repo-ht"><h1>' + esc(r.full) + (r.private ? ' <span class="lk" title="' + esc(t("私有")) + '">' + ic("lock") + "</span>" : "") + '</h1><div class="dbx-hint">' + esc(r.description || t("（没有描述）")) + '</div></div><div class="stats">' + statBtns(r.stars, r.forks, r.issues, true) + '</div></div><div class="dbx-hint repo-meta">' + esc(t("默认分支 {0}", r.branch)) + (r.permissions && !r.permissions.push ? ' · <span class="warn">' + esc(t("只读权限")) + "</span>" : "") + '</div><div id="tab-body"></div>';
     bindStats(view.querySelector(".repo-h"), function () { return r.full; });
+    syncStars(view.querySelector(".repo-h"), function () { return r.full; }, [r.full]);
     if (openN && (S.tab === "issues" || S.tab === "issue")) { S.tab = "issues"; paintSide(); return showIssue(openN); }
     if (openN && (S.tab === "pulls" || S.tab === "pull")) { S.tab = "pulls"; paintSide(); return showPull(openN); }
     setTab(S.tab);
