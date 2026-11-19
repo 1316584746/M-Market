@@ -33,7 +33,7 @@
     var letter = esc((x.name || "?").trim().charAt(0).toUpperCase());
     var ico = '<span class="ico">' + (x.icon ? '<img src="' + esc(x.icon) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()" />' : "") + letter + "</span>";
     return '<article class="card"><a class="cover" href="plugin/' + encodeURIComponent(x.slug) + '.html" aria-label="' + esc(x.name) + '"></a><div class="r1">' + ico + '<div class="t"><h3 title="' + esc(x.name) + '">' + esc(x.name) + '</h3><div class="meta">' + meta + "</div></div></div><p>" + esc(x.description || T.noDesc) + "</p><div>" +
-      '<span class="tag kind">' + (x.kind === "dbx" ? "DBX" : "DSH") + "</span>" + (x.official ? '<span class="tag">' + esc(T.official) + "</span>" : "") + (x.category ? '<span class="tag">' + esc(x.category) + "</span>" : "") +
+      '<span class="tag kind">' + (x.kind === "dbx" ? "DBX" : T.community) + "</span>" + (x.official ? '<span class="tag">' + esc(T.official) + "</span>" : "") + (x.category ? '<span class="tag">' + esc(x.category) + "</span>" : "") +
       (x.tags || []).slice(0, 3).map(function (t) { return '<span class="tag">' + esc(t) + "</span>"; }).join("") + "</div></article>";
   }
 

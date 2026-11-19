@@ -3,28 +3,26 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>上下文洞察</title>
+<title>Context Insight</title>
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 <header class="top">
-  <div class="title">上下文洞察 <span class="dbx-badge" id="count"></span></div>
-  <div class="dir">
-    <span class="dbx-hint" id="dir">正在查找 trace 目录…</span>
-    <button class="dbx-btn dbx-btn--ghost" id="chdir" title="手动指定 trace 目录">修改目录</button>
-    <button class="dbx-btn" id="refresh">刷新</button>
-  </div>
+  <div class="brand"><span class="logo"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg></span><span id="brandName">上下文洞察</span></div>
+  <nav class="tabs" id="tabs" role="tablist">
+    <button type="button" data-tab="insights" class="on"></button>
+    <button type="button" data-tab="context"></button>
+    <button type="button" data-tab="fleet"></button>
+  </nav>
+  <div class="sp"></div>
+  <button type="button" class="ibtn" id="refresh" title="Refresh">⟳</button>
+  <button type="button" class="ibtn" id="settings" title="Settings">⚙</button>
+  <div class="lang" id="lang" role="group" aria-label="Language"><button type="button" data-l="zh">中</button><button type="button" data-l="en">EN</button></div>
 </header>
-<div class="editdir" id="editdir" hidden>
-  <input class="dbx-input" id="dirin" placeholder="trace 目录的完整路径（留空 = 自动查找）" />
-  <button class="dbx-btn dbx-btn--primary" id="dirok">确定</button>
-  <button class="dbx-btn" id="dircancel">取消</button>
-  <span class="warn" id="direrr"></span>
-</div>
-<main class="layout">
-  <aside class="runs" id="runs"><div class="dbx-hint pad">加载中…</div></aside>
-  <section class="detail" id="detail"><div class="dbx-hint pad">从左侧选一次运行，看它的 token 走势和上下文构成。</div></section>
-</main>
+<main id="view"><div class="dbx-hint pad">…</div></main>
+<div id="modal" class="modal" hidden><div class="dlg" id="dlg"></div></div>
+<div id="toast" class="toast" hidden></div>
+<script src="i18n.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

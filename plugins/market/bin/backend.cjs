@@ -1,6 +1,6 @@
 "use strict";
 /**
- * 插件市场后台：多来源目录（DBX / DSH）聚合、搜索筛选、安装更新卸载、收藏分组备注、备份还原（文件 / WebDAV / 私有 Gist）。
+ * 插件市场后台：多来源目录聚合、搜索筛选、安装更新卸载、收藏分组备注、备份还原（文件 / WebDAV / 私有 Gist）。
  * 安装的做法：下载 .dbxp → 核对目录里的 sha256 → 安全解压 → 放进 M-Harness 的 plugins 目录（和 M-Harness 自己装的完全一样）。
  */
 const fs = require("node:fs");
@@ -17,8 +17,8 @@ const MAX_CATALOG = 40 * 1024 * 1024;
 
 const DEFAULT_SOURCES = [
   { id: "m-market", name: "M-Market", url: "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/catalog/index.json", enabled: true },
-  { id: "dsh-hub", name: "DSH 插件市场", url: "https://dshbazaar.io/api/index.json", enabled: true },
-  { id: "awesome-dsh", name: "Awesome DSH（社区精选，较大）", url: "https://cdn.jsdelivr.net/npm/dsh-plugin-catalog/index.json", enabled: false },
+  { id: "dsh-hub", name: "社区插件索引", url: "https://dshbazaar.io/api/index.json", enabled: true },
+  { id: "awesome-dsh", name: "社区精选（较大）", url: "https://cdn.jsdelivr.net/npm/dsh-plugin-catalog/index.json", enabled: false },
   { id: "dbx", name: "DBX 官方目录", url: "https://dl.dbxio.com/catalog/index.json", enabled: false },
 ];
 /** 安装包只允许来自：目录自己所在的主机，或这几个常见的托管站 */
@@ -351,7 +351,7 @@ async function remove(id) {
   return { removed: ok };
 }
 
-// ───────── 截图（从插件仓库的 README 里找图，和 DSH Market 一样只信 GitHub 托管的图） ─────────
+// ───────── 截图（从插件仓库的 README 里找图，只信 GitHub 托管的图） ─────────
 
 const SHOT_TTL = 7 * 24 * 3600 * 1000;
 const SHOT_HOSTS = ["raw.githubusercontent.com", "github.com", "user-images.githubusercontent.com", "private-user-images.githubusercontent.com"];
@@ -718,7 +718,7 @@ const tools = [
   },
   {
     name: "market_install",
-    description: "安装或更新一个 DBX 插件（会下载并校验安装包）。只在用户明确要求时调用；DSH 插件不能用它安装。",
+    description: "安装或更新一个 DBX 插件（会下载并校验安装包）。只在用户明确要求时调用；社区索引里的非 DBX 插件不能用它安装。",
     readOnly: false,
     inputSchema: { type: "object", required: ["id"], properties: { id: { type: "string", description: "插件 id（来自 market_search）" } } },
     run: a => install(a.id),

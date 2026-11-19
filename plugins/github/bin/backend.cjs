@@ -19,15 +19,21 @@ const apiBase = () => {
 };
 const token = () => cfg.get().token || "";
 
+// ───────── 中英文：错误提示跟着界面语言走（界面每次调用都带 lang；AI 工具调用没带就用设置里存的，默认中文） ─────────
+let LANG = "zh";
+const m = (zh, en) => (LANG === "en" ? en : zh);
+const LABELS = { 仓库名: "Repository name", 提交说明: "Commit message", 文件路径: "File path", "文件 sha": "File sha", 分支名: "Branch name", 来源分支: "Source branch", 标题: "Title", 评论内容: "Comment", 源分支: "Head branch", 目标分支: "Base branch", 工作流: "Workflow", 分支: "Branch", 标签: "Tag", 运行编号: "Run id", 发布编号: "Release id", 编号: "Number" };
+const lbl = s => (LANG === "en" ? LABELS[s] || s : s);
+
 function checkBase(raw) {
   let u;
   try {
     u = new URL(raw);
   } catch {
-    throw new Error("API 地址不合法");
+    throw new Error(m("API 地址不合法", "Invalid API URL"));
   }
   const local = u.protocol === "http:" && /^(127\.0\.0\.1|localhost)$/.test(u.hostname);
-  if (u.protocol !== "https:" && !local) throw new Error("API 地址只支持 https");
+  if (u.protocol !== "https:" && !local) throw new Error(m("API 地址只支持 https", "The API URL must use https"));
   return u.toString().replace(/\/$/, "");
 }
 
@@ -39,23 +45,24 @@ class GhError extends Error {
 }
 
 function describe(status, j, rate) {
-  let m = j && typeof j.message === "string" ? j.message : "";
+  let msg = j && typeof j.message === "string" ? j.message : "";
   if (j && Array.isArray(j.errors) && j.errors.length) {
     const d = j.errors.map(e => (typeof e === "string" ? e : e.message || [e.resource, e.field, e.code].filter(Boolean).join(" "))).filter(Boolean).join("；");
-    if (d) m += `（${d}）`;
+    if (d) msg += `（${d}）`;
   }
-  if (status === 401) return "令牌无效或已过期，请到「设置」里重新填写";
-  if (status === 403 && rate && rate.remaining === "0") return `触发了 GitHub 的速率限制${rate.reset ? "，" + new Date(+rate.reset * 1000).toLocaleTimeString() + " 后恢复" : ""}`;
-  if (status === 403) return `没有权限：${m || "令牌缺少对应的权限（仓库操作要 repo，改工作流要 workflow）"}`;
-  if (status === 404) return `找不到（也可能是令牌没有这个仓库的访问权限）${m && m !== "Not Found" ? "：" + m : ""}`;
-  if (status === 409) return `冲突：${m || "内容已被别人改过，请刷新后重试"}`;
-  if (status === 422) return `GitHub 拒绝了这个请求：${m || "参数不对"}`;
-  return `GitHub 返回 ${status}${m ? "：" + m : ""}`;
+  const sep = LANG === "en" ? ": " : "：";
+  if (status === 401) return m("令牌无效或已过期，请到「设置」里重新填写", "The token is invalid or expired. Enter a new one in Settings.");
+  if (status === 403 && rate && rate.remaining === "0") return m(`触发了 GitHub 的速率限制${rate.reset ? "，" + new Date(+rate.reset * 1000).toLocaleTimeString() + " 后恢复" : ""}`, `GitHub rate limit reached${rate.reset ? "; resets at " + new Date(+rate.reset * 1000).toLocaleTimeString() : ""}`);
+  if (status === 403) return m(`没有权限：${msg || "令牌缺少对应的权限（仓库操作要 repo，改工作流要 workflow）"}`, `Permission denied: ${msg || "the token lacks the required scope (repo for repositories, workflow for workflow files)"}`);
+  if (status === 404) return m(`找不到（也可能是令牌没有这个仓库的访问权限）${msg && msg !== "Not Found" ? "：" + msg : ""}`, `Not found (or the token has no access to it)${msg && msg !== "Not Found" ? sep + msg : ""}`);
+  if (status === 409) return m(`冲突：${msg || "内容已被别人改过，请刷新后重试"}`, `Conflict: ${msg || "the content was changed by someone else; refresh and try again"}`);
+  if (status === 422) return m(`GitHub 拒绝了这个请求：${msg || "参数不对"}`, `GitHub rejected the request: ${msg || "invalid parameters"}`);
+  return m(`GitHub 返回 ${status}${msg ? "：" + msg : ""}`, `GitHub returned ${status}${msg ? ": " + msg : ""}`);
 }
 
 async function request(method, p, { query, body, raw, needAuth = true } = {}) {
   const t = token();
-  if (needAuth && !t) throw new Error("还没有登录：先到「设置」里填 GitHub 令牌");
+  if (needAuth && !t) throw new Error(m("还没有登录：先到「设置」里填 GitHub 令牌", "Not signed in: enter a GitHub token first"));
   const u = new URL(apiBase() + p);
   for (const [k, v] of Object.entries(query || {})) if (v !== undefined && v !== null && v !== "") u.searchParams.set(k, String(v));
   const res = await fetch(u, {
@@ -98,32 +105,32 @@ const get = (p, o) => request("GET", p, o);
 
 const repoOf = r => {
   const s = String(r ?? "").trim();
-  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(s)) throw new Error("仓库要写成 所有者/仓库名");
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(s)) throw new Error(m("仓库要写成 所有者/仓库名", "Write the repository as owner/name"));
   return s;
 };
 const intOf = (n, label = "编号") => {
   const v = Number(n);
-  if (!Number.isInteger(v) || v <= 0) throw new Error(`${label}不合法`);
+  if (!Number.isInteger(v) || v <= 0) throw new Error(m(`${label}不合法`, `Invalid ${lbl(label).toLowerCase()}`));
   return v;
 };
 const pathOf = p => {
   const s = String(p ?? "").replace(/^\/+/, "");
-  if (s.split("/").some(x => x === ".." || x === ".")) throw new Error("路径不合法");
+  if (s.split("/").some(x => x === ".." || x === ".")) throw new Error(m("路径不合法", "Invalid path"));
   return s.split("/").map(encodeURIComponent).join("/");
 };
 const need = (v, label) => {
   const s = String(v ?? "").trim();
-  if (!s) throw new Error(`${label}不能为空`);
+  if (!s) throw new Error(m(`${label}不能为空`, `${lbl(label)} is required`));
   return s;
 };
 const pageOf = p => Math.max(1, Math.min(1000, Number(p) || 1));
 const PER = 30;
-const clip = (s, n) => (typeof s === "string" && s.length > n ? s.slice(0, n) + "\n…（已截断）" : s || "");
+const clip = (s, n) => (typeof s === "string" && s.length > n ? s.slice(0, n) + "\n…" + m("（已截断）", " (truncated)") : s || "");
 
 // ───────── 数据整形（只留界面和 AI 需要的字段） ─────────
 
 const userOf = u => (u ? { login: u.login, avatar: u.avatar_url } : null);
-const repoShape = r => ({ full: r.full_name, name: r.name, owner: r.owner?.login, private: !!r.private, fork: !!r.fork, archived: !!r.archived, description: r.description || "", language: r.language || "", stars: r.stargazers_count ?? 0, forks: r.forks_count ?? 0, issues: r.open_issues_count ?? 0, updated: r.pushed_at || r.updated_at, branch: r.default_branch, url: r.html_url, permissions: r.permissions ? { push: !!r.permissions.push, admin: !!r.permissions.admin } : undefined });
+const repoShape = r => ({ full: r.full_name, name: r.name, owner: r.owner?.login, private: !!r.private, fork: !!r.fork, archived: !!r.archived, description: r.description || "", language: r.language || "", stars: r.stargazers_count ?? 0, forks: r.forks_count ?? 0, issues: r.open_issues_count ?? 0, updated: r.pushed_at || r.updated_at, created: r.created_at, branch: r.default_branch, url: r.html_url, permissions: r.permissions ? { push: !!r.permissions.push, admin: !!r.permissions.admin } : undefined });
 const labelsOf = l => (Array.isArray(l) ? l.map(x => (typeof x === "string" ? { name: x } : { name: x.name, color: x.color })) : []);
 const issueShape = i => ({ number: i.number, title: i.title, state: i.state, body: i.body || "", user: userOf(i.user), labels: labelsOf(i.labels), comments: i.comments ?? 0, created: i.created_at, updated: i.updated_at, url: i.html_url, assignees: (i.assignees || []).map(a => a.login), isPull: !!i.pull_request });
 const commentShape = c => ({ id: c.id, user: userOf(c.user), body: c.body || "", created: c.created_at, url: c.html_url });
@@ -140,7 +147,7 @@ async function whoami() {
 
 const methods = {
   "gh/status": async () => {
-    const out = { hasToken: !!token(), apiBase: apiBase() };
+    const out = { hasToken: !!token(), apiBase: apiBase(), lang: cfg.get().lang || "" };
     if (!out.hasToken) return out;
     try {
       out.user = await whoami();
@@ -155,7 +162,7 @@ const methods = {
     if (typeof p?.apiBase === "string") patch.apiBase = p.apiBase.trim() ? checkBase(p.apiBase.trim()) : "";
     const prev = cfg.get();
     if (t) {
-      if (/\s/.test(t) || t.length < 20 || t.length > 400) throw new Error("令牌格式不对");
+      if (/\s/.test(t) || t.length < 20 || t.length > 400) throw new Error(m("令牌格式不对", "Invalid token format"));
       patch.token = t;
     }
     cfg.set(patch);
@@ -180,10 +187,56 @@ const methods = {
       const r = await get("/search/repositories", { query: { q, per_page: PER, page: pageOf(p.page) } });
       return { items: (r.data.items || []).map(repoShape), hasNext: r.hasNext, page: pageOf(p.page) };
     }
-    const r = await get("/user/repos", { query: { per_page: 100, page: pageOf(p?.page), sort: "pushed", affiliation: "owner,collaborator,organization_member" } });
+    // scope：all 全部 / starred 已加星标 / owned 我自己的 / archived 已归档；sort：pushed 最近活跃 / name 名称 / stars 星标数 / created 创建时间
+    const scope = ["all", "starred", "owned", "archived"].includes(p?.scope) ? p.scope : "all";
+    const r =
+      scope === "starred"
+        ? await get("/user/starred", { query: { per_page: 100, page: pageOf(p?.page) } })
+        : await get("/user/repos", { query: { per_page: 100, page: pageOf(p?.page), sort: "pushed", affiliation: scope === "owned" ? "owner" : "owner,collaborator,organization_member" } });
     let items = r.data.map(repoShape);
+    if (scope === "archived") items = items.filter(x => x.archived);
     if (q) items = items.filter(x => `${x.full} ${x.description}`.toLowerCase().includes(q.toLowerCase()));
+    const sort = ["pushed", "name", "stars", "created"].includes(p?.sort) ? p.sort : "pushed";
+    const key = { pushed: x => x.updated || "", name: x => x.name.toLowerCase(), stars: x => x.stars, created: x => x.created || "" }[sort];
+    const dir = p?.dir === "asc" ? 1 : -1;
+    if (sort !== "pushed" || dir === 1) items.sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0) * dir);
     return { items, hasNext: r.hasNext, page: pageOf(p?.page) };
+  },
+  // 跨仓库的「我的 Issue / PR」：kind=issues|pulls；filter=assigned 指派给我 / created 我创建的 / mentioned 提到我的 / review 等我评审（只对 PR）
+  "gh/myWork": async p => {
+    const kind = p?.kind === "pulls" ? "pulls" : "issues";
+    const filter = ["assigned", "created", "mentioned", "review"].includes(p?.filter) ? p.filter : kind === "pulls" ? "created" : "assigned";
+    const state = ["open", "closed", "all"].includes(p?.state) ? p.state : "open";
+    const who = { assigned: "assignee:@me", created: "author:@me", mentioned: "mentions:@me", review: "review-requested:@me" }[filter];
+    const q = [kind === "pulls" ? "is:pr" : "is:issue", state === "all" ? "" : "is:" + state, who, "archived:false"].filter(Boolean).join(" ");
+    const r = await get("/search/issues", { query: { q, sort: "updated", order: "desc", per_page: PER, page: pageOf(p?.page) } });
+    const items = (r.data.items || []).map(i => ({ ...issueShape(i), repo: String(i.repository_url || "").split("/repos/")[1] || "", state: i.pull_request?.merged_at ? "merged" : i.state, draft: !!i.draft }));
+    return { items, hasNext: r.hasNext, total: r.data.total_count ?? items.length };
+  },
+  // 通知（GitHub 的「待办」）；经典令牌需要 notifications 权限
+  "gh/notifications": async p => {
+    const r = await get("/notifications", { query: { all: p?.all ? "true" : "false", per_page: PER, page: pageOf(p?.page) } });
+    const items = r.data.map(n => ({
+      id: n.id,
+      title: n.subject?.title || "",
+      type: n.subject?.type || "",
+      number: Number(/\/(?:issues|pulls)\/(\d+)$/.exec(n.subject?.url || "")?.[1]) || 0,
+      repo: n.repository?.full_name || "",
+      reason: n.reason,
+      unread: !!n.unread,
+      updated: n.updated_at,
+    }));
+    return { items, hasNext: r.hasNext };
+  },
+  "gh/markRead": async p => {
+    if (p?.id) await request("PATCH", `/notifications/threads/${encodeURIComponent(String(p.id))}`);
+    else await request("PUT", "/notifications", { body: {} });
+    return { ok: true };
+  },
+  "gh/setLang": async p => {
+    const lang = p?.lang === "en" ? "en" : "zh";
+    cfg.set({ lang });
+    return { lang };
   },
   "gh/repo": async p => {
     const repo = repoOf(p?.repo);
@@ -192,7 +245,7 @@ const methods = {
   },
   "gh/createRepo": async p => {
     const name = need(p?.name, "仓库名");
-    if (!/^[A-Za-z0-9_.-]+$/.test(name)) throw new Error("仓库名只能含字母、数字、-、_、.");
+    if (!/^[A-Za-z0-9_.-]+$/.test(name)) throw new Error(m("仓库名只能含字母、数字、-、_、.", "Repository names may only contain letters, digits, -, _ and ."));
     const r = await request("POST", "/user/repos", { body: { name, description: String(p?.description ?? ""), private: p?.private !== false, auto_init: p?.autoInit === true } });
     return repoShape(r.data);
   },
@@ -241,7 +294,7 @@ const methods = {
   "gh/createBranch": async p => {
     const repo = repoOf(p?.repo);
     const name = need(p?.name, "分支名");
-    if (/[\s~^:?*[\\]|\.\.|\/\/|^\/|\/$|\.lock$/.test(name)) throw new Error("分支名不合法");
+    if (/[\s~^:?*[\\]|\.\.|\/\/|^\/|\/$|\.lock$/.test(name)) throw new Error(m("分支名不合法", "Invalid branch name"));
     const from = need(p?.from, "来源分支");
     const base = await get(`/repos/${repo}/git/ref/heads/${pathOf(from)}`);
     await request("POST", `/repos/${repo}/git/refs`, { body: { ref: `refs/heads/${name}`, sha: base.data.object.sha } });
@@ -287,7 +340,7 @@ const methods = {
     if (p?.state === "open" || p?.state === "closed") body.state = p.state;
     if (p?.stateReason) body.state_reason = String(p.stateReason);
     if (Array.isArray(p?.labels)) body.labels = p.labels.map(String);
-    if (!Object.keys(body).length) throw new Error("没有要改的内容");
+    if (!Object.keys(body).length) throw new Error(m("没有要改的内容", "Nothing to change"));
     const r = await request("PATCH", `/repos/${repo}/issues/${intOf(p?.number)}`, { body });
     return issueShape(r.data);
   },
@@ -331,7 +384,7 @@ const methods = {
     if (typeof p?.body === "string") body.body = p.body;
     if (p?.state === "open" || p?.state === "closed") body.state = p.state;
     if (typeof p?.base === "string" && p.base) body.base = p.base;
-    if (!Object.keys(body).length) throw new Error("没有要改的内容");
+    if (!Object.keys(body).length) throw new Error(m("没有要改的内容", "Nothing to change"));
     const r = await request("PATCH", `/repos/${repo}/pulls/${intOf(p?.number)}`, { body });
     return pullShape(r.data);
   },
@@ -347,7 +400,7 @@ const methods = {
   "gh/reviewPull": async p => {
     const repo = repoOf(p?.repo);
     const event = ["APPROVE", "REQUEST_CHANGES", "COMMENT"].includes(p?.event) ? p.event : "COMMENT";
-    if (event !== "APPROVE" && !String(p?.body ?? "").trim()) throw new Error("评审内容不能为空");
+    if (event !== "APPROVE" && !String(p?.body ?? "").trim()) throw new Error(m("评审内容不能为空", "A review comment is required"));
     const r = await request("POST", `/repos/${repo}/pulls/${intOf(p?.number)}/reviews`, { body: { event, body: String(p?.body ?? "") } });
     return { state: r.data.state };
   },
@@ -431,5 +484,14 @@ const tools = [
   tool("github_run_rerun", "重新运行一次 Actions（failedOnly=true 只重跑失败的任务）。", false, { repo: repoProp, id: { type: "number" }, failedOnly: { type: "boolean" } }, ["repo", "id"], viaMethod("gh/rerun")),
   tool("github_release_create", "创建 Release（会创建标签，draft=true 先存草稿）。", false, { repo: repoProp, tag: S, name: S, body: S, target: S, draft: { type: "boolean" }, prerelease: { type: "boolean" } }, ["repo", "tag"], viaMethod("gh/createRelease")),
 ];
+
+// 每次调用先确定语言：界面传 lang 就用它；AI 工具调用没传，就用设置里存的（默认中文）
+for (const name of Object.keys(methods)) {
+  const fn = methods[name];
+  methods[name] = async p => {
+    LANG = p?.lang === "en" || p?.lang === "zh" ? p.lang : cfg.get().lang === "en" ? "en" : "zh";
+    return fn(p);
+  };
+}
 
 serve({ id: "github", version: VERSION, methods, tools });

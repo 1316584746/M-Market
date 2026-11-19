@@ -64,6 +64,45 @@ describe("github：只读", () => {
     assert.deepEqual(info.branches.map(b => b.name), ["main", "feature"]);
   });
 
+  it("仓库：加星标 / 个人 / 排序；跨仓库的我的 Issue、PR；通知", async () => {
+    const p = await login();
+    let r = await p.call("gh/repos", { scope: "starred" });
+    assert.deepEqual(r.items.map(x => x.full), ["vuejs/core"]);
+    r = await p.call("gh/repos", { sort: "name", dir: "asc" });
+    assert.deepEqual(r.items.map(x => x.name), ["app", "other"]);
+    r = await p.call("gh/repos", { sort: "name", dir: "desc" });
+    assert.deepEqual(r.items.map(x => x.name), ["other", "app"]);
+    r = await p.call("gh/repos", { scope: "archived" });
+    assert.equal(r.items.length, 0);
+
+    const iss = await p.call("gh/myWork", { kind: "issues", filter: "assigned" });
+    assert.equal(iss.items[0].repo, "me/app");
+    assert.equal(iss.items[0].isPull, false);
+    const prs = await p.call("gh/myWork", { kind: "pulls", filter: "review" });
+    assert.equal(prs.items[0].isPull, true);
+
+    const n = await p.call("gh/notifications", {});
+    assert.deepEqual(n.items.map(x => [x.repo, x.type, x.number, x.unread]), [["me/app", "PullRequest", 5, true], ["me/app", "Issue", 1, false]]);
+    await p.call("gh/markRead", { id: "n1" });
+    await p.call("gh/markRead", {});
+    assert.deepEqual(log.filter(x => /notifications/.test(x.path)).map(x => x.method + " " + x.path), ["PATCH /notifications/threads/n1", "PUT /notifications"]);
+  });
+
+  it("中英文：语言存在设置里，错误提示跟着 lang 走", async () => {
+    const p = await login();
+    assert.equal((await p.call("gh/status")).lang, "");
+    await assert.rejects(p.call("gh/contents", { repo: "bad repo", lang: "en" }), /owner\/name/);
+    await assert.rejects(p.call("gh/contents", { repo: "me/app", path: "../x", lang: "en" }), /Invalid path/);
+    await assert.rejects(p.call("gh/createIssue", { repo: "me/app", title: " ", lang: "en" }), /Title is required/);
+    await assert.rejects(p.call("gh/contents", { repo: "me/app", path: "nope", lang: "en" }), /Not found/);
+    await assert.rejects(p.call("gh/contents", { repo: "bad repo", lang: "zh" }), /所有者\/仓库名/);
+    await p.call("gh/setLang", { lang: "en" });
+    assert.equal((await p.call("gh/status")).lang, "en");
+    await assert.rejects(p.call("gh/contents", { repo: "bad repo" }), /owner\/name/, "没带 lang（比如 AI 工具调用）就用设置里存的");
+    await p.call("gh/setLang", { lang: "zh" });
+    await assert.rejects(p.call("gh/contents", { repo: "bad repo" }), /所有者\/仓库名/);
+  });
+
   it("文件：目录（文件夹排前）、文本、二进制、过大", async () => {
     const p = await login();
     const dir = await p.call("gh/contents", { repo: "me/app", path: "" });

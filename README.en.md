@@ -10,10 +10,6 @@ English | [中文](README.md)
 
 The **plugin market** for M-Harness, and its **official plugin repository**. Browse, search, one-click install.
 
-![M-Market](assets/demo-zh.png)
-
-> The screenshot shows the Plugin Market plugin inside M-Harness (Chinese UI): official DBX plugins plus the community DSH index, browsable by category, stars and recent updates.
-
 ## Install
 
 M-Harness ships with this repository preset (Settings → Plugin repositories → "M-Harness official plugins"). Open the **Plugins** page, find **Plugin Market**, install it, then use it to install the rest.
@@ -32,7 +28,7 @@ The first time a plugin with a backend process runs, M-Harness asks you to trust
 
 | Plugin | What it does | AI tools |
 |---|---|---|
-| **Plugin Market** (`market`) | Multi-source catalogs (DBX / DSH), search / categories / sorting, one-click install / update / uninstall, favorites, groups, notes, themes tab, backup and restore, diagnostics log | `market_search` `market_installed` `market_install` |
+| **Plugin Market** (`market`) | Multi-source catalogs, search / categories / sorting, one-click install / update / uninstall, favorites, groups, notes, themes tab, backup and restore, diagnostics log | `market_search` `market_installed` `market_install` |
 | **GitHub** (`github`) | Repositories, file browse and edit-commit, Issues, Pull Requests (diff / review / merge), Actions, Releases, branches; **includes write operations** | 8 read-only + 10 write tools (`github_issue_create` `github_pull_merge` `github_file_write` …) |
 | **MemSearch** (`memsearch`) | Long-term memory as Markdown, offline keyword (BM25) search, mountable note folders | `memory_search` `memory_recent` `memory_add` |
 | **Context Insight** (`context-insight`) | Reads M-Harness traces: token trend, context composition, compaction events, tool-output usage | `context_runs` `context_stats` |
@@ -43,7 +39,7 @@ All six are **one package for all three platforms**: the backend is a Node scrip
 
 ## What the market does
 
-- **Browse & search** the DBX catalog and the DSH market index together; category pills with counts, sort by stars / recent / name, type and source filters, a "Recently updated" strip
+- **Browse & search** the official catalog and the community plugin index together; category pills with counts, sort by stars / recent / name, type and source filters, a "Recently updated" strip
 - **One-click install / update / uninstall** (DBX plugins): permissions are shown first; the download is checked against the catalog sha256 and the in-package `checksums.json`; downloads are restricted to the catalog's own host and a few common hosts
 - **Screenshots**: used as listed in the catalog, otherwise picked from the plugin repository README (GitHub-hosted images only; badges and other hosts are dropped), shown as a carousel in the detail view
 - **Favorites, groups, notes**: stored locally only; notes are searchable
@@ -52,18 +48,17 @@ All six are **one package for all three platforms**: the backend is a Node scrip
 - **Export log**: versions, source status, installed plugins; paths and tokens are masked, nothing is sent anywhere
 - **AI tools**: `market_search` / `market_installed` / `market_install`
 
-### How it differs from DSH Market (honestly)
-
-This market was **rewritten after [dsh-market](https://github.com/dsh-market/dsh-market)**: the layout and scope follow it, but it is not a port and has far fewer features:
+### Known limitations (honestly)
 
 - **Comments**: a plugin window cannot embed giscus (the sandbox blocks external frames). The "Comments" button gives the plugin repository's Discussions / Issues links to open in a browser.
-- **DSH plugins are browse-only**: M-Harness exposes no install API; the market downloads, verifies and extracts into `plugins/` itself, and only knows DBX packages. Install DSH plugins from M-Harness's own plugin center.
-- **Missing**: download statistics, compatibility filter, hot disable / enable, background update reminders (cards only show "update available"), load-order and conflict diagnostics, blocking, GitHub acceleration routes.
+- **Plugins from the community index are browse-only**: M-Harness exposes no install API; the market downloads, verifies and extracts into `plugins/` itself, and only knows DBX packages. Install other formats from M-Harness's own plugin center.
+- **Hide and update all**: the card's "···" menu hides plugins you no longer want to see (find them under "Hidden"); "Installed" has an "Update all" button (each package is verified, one failure does not affect the others; the market itself is skipped, update it on its own).
+- **Missing**: download statistics, compatibility filter, hot disable / enable, background update reminders (cards only show "update available"), load-order and conflict diagnostics, GitHub acceleration routes, scheduled automatic backup.
 - Screenshots on **cards** only appear for catalog entries that declare `screenshots`; README-derived images show in the detail view only.
 
 ## Website
 
-`.github/workflows/site.yml` fetches the upstream DSH market index daily, merges it with this repository's official plugins, builds a searchable static site (`site/` is the template) and publishes it to GitHub Pages. Set **Settings → Pages → Source** to **GitHub Actions** once. If the upstream is unreachable, only official plugins are published; the build does not fail.
+`.github/workflows/site.yml` fetches the upstream community plugin index daily, merges it with this repository's official plugins, builds a searchable static site (`site/` is the template) and publishes it to GitHub Pages. Set **Settings → Pages → Source** to **GitHub Actions** once. If the upstream is unreachable, only official plugins are published; the build does not fail.
 
 ## Security
 
@@ -110,4 +105,4 @@ After changing a plugin: bump `version` in its `manifest.json`, run `node script
 
 ## License
 
-Repository code is MIT. Each plugin's `NOTICE.md` lists the upstream projects it drew on and their licenses.
+Repository code is MIT. Each plugin's `NOTICE.md` lists the third-party projects it drew on and their licenses.

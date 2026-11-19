@@ -62,7 +62,13 @@ export async function startMockGithub() {
       if (M("GET", /^\/repos\/me\/app\/commits$/)) return send(200, [{ sha: "e".repeat(40), commit: { message: "first\n\nmore", author: { name: "Me", date: "2026-11-01T00:00:00Z" } }, author: user, html_url: "https://github.com/me/app/commit/e" }]);
 
       if (M("GET", /^\/repos\/me\/app\/issues$/)) return send(200, [issue(1), issue(2, { pull_request: {} }), issue(3, { state: "closed" })], { link: '<x>; rel="next"' });
-      if (M("GET", /^\/search\/issues$/)) return send(200, { items: [issue(7)] });
+      if (M("GET", /^\/user\/starred$/)) return send(200, [{ ...repo, full_name: "vuejs/core", name: "core", owner: { login: "vuejs" }, private: false, stargazers_count: 45000, description: "Vue 3 core" }]);
+      if (M("GET", /^\/notifications$/)) return send(200, [{ id: "n1", unread: true, reason: "review_requested", updated_at: "2026-11-02T00:00:00Z", subject: { title: "pr 5", type: "PullRequest", url: "https://api.github.com/repos/me/app/pulls/5" }, repository: { full_name: "me/app" } }, { id: "n2", unread: false, reason: "mention", updated_at: "2026-11-01T00:00:00Z", subject: { title: "issue 1", type: "Issue", url: "https://api.github.com/repos/me/app/issues/1" }, repository: { full_name: "me/app" } }]);
+      if (M("PATCH", /^\/notifications\/threads\/(\w+)$/) || M("PUT", /^\/notifications$/)) return send(205);
+      if (M("GET", /^\/search\/issues$/)) {
+        const isPr = /is:pr/.test(url.searchParams.get("q") || "");
+        return send(200, { total_count: 1, items: [issue(7, { repository_url: "https://api.github.com/repos/me/app", ...(isPr ? { pull_request: {} } : {}) })] });
+      }
       if (M("POST", /^\/repos\/me\/app\/issues$/)) return send(201, issue(10, { title: body.title, body: body.body, labels: (body.labels || []).map(name => ({ name })) }));
       if (M("GET", /^\/repos\/me\/app\/issues\/(\d+)$/)) return send(200, issue(+m[1]));
       if (M("PATCH", /^\/repos\/me\/app\/issues\/(\d+)$/)) return send(200, issue(+m[1], { state: body.state || "open", title: body.title || "t" }));

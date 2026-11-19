@@ -21,17 +21,17 @@
         "fs.write",
         "process.spawn:git"
       ],
-      "latestVersion": "0.1.0",
+      "latestVersion": "0.1.1",
       "versions": [
         {
-          "version": "0.1.0",
+          "version": "0.1.1",
           "releasedAt": "2026-11-19",
           "artifacts": [
             {
               "target": "universal",
-              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/better-sidebar-0.1.0.dbxp",
-              "sha256": "eecd2c1c4f28562b24ed7c11c9517491e2f36b4287bbc146ce6f50540628f704",
-              "size": 17012
+              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/better-sidebar-0.1.1.dbxp",
+              "sha256": "8dde7c7e551d2d423802ea217bf24bd587fad3014b1be54e91987c8b4750c054",
+              "size": 16992
             }
           ]
         }
@@ -95,7 +95,7 @@
       "id": "context-insight",
       "name": "Context Insight",
       "publisher": "M-Market",
-      "description": "上下文洞察：读 M-Harness 的 trace，看每次运行的 token 走势、上下文构成、压缩事件和工具输出占用；也给 AI 提供上下文统计工具。",
+      "description": "上下文洞察：读取 M-Harness 的 trace，提供洞察总览（KPI、7 天用量、热力图、技能 / 工具 / 命令排行、会话卡片）和单个会话的 Context 详情（构成、走势、压缩、文件、命令、成本估算），支持中 / 英文，也给 AI 提供统计工具。",
       "license": "Apache-2.0",
       "homepage": "https://github.com/1316584746/M-Market",
       "source": "https://github.com/1316584746/M-Market",
@@ -103,22 +103,23 @@
         "context",
         "trace",
         "token",
-        "insight"
+        "insight",
+        "cost"
       ],
       "permissions": [
         "fs.read"
       ],
-      "latestVersion": "0.1.0",
+      "latestVersion": "0.2.1",
       "versions": [
         {
-          "version": "0.1.0",
+          "version": "0.2.1",
           "releasedAt": "2026-11-19",
           "artifacts": [
             {
               "target": "universal",
-              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/context-insight-0.1.0.dbxp",
-              "sha256": "457b1e4354e598143d0b901410237fa31411267b8bf3e39fd568bf50eaef2a04",
-              "size": 15062
+              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/context-insight-0.2.1.dbxp",
+              "sha256": "67cea7b4aee4615507c551801b20aa51b9a884513a41ff5fd4cce198bec516ba",
+              "size": 39091
             }
           ]
         }
@@ -126,11 +127,11 @@
       "localizations": {
         "zh-CN": {
           "name": "上下文洞察",
-          "description": "读 M-Harness 的 trace，看每次运行的 token 走势、上下文构成、压缩事件和工具输出占用；也给 AI 提供上下文统计工具。"
+          "description": "读取 M-Harness 的 trace，提供洞察总览（KPI、7 天用量、热力图、技能 / 工具 / 命令排行、会话卡片）和单个会话的 Context 详情（构成、走势、压缩、文件、命令、成本估算），支持中 / 英文，也给 AI 提供统计工具。"
         },
         "en": {
           "name": "Context Insight",
-          "description": "Reads M-Harness traces: per-run token trend, context composition, compaction events and tool output weight. Also exposes context stats tools to the AI."
+          "description": "Reads M-Harness traces: an insights overview (KPIs, 7-day usage, heatmap, skill / tool / command rankings, session cards) and a per-session Context view (composition, trend, compaction, files, commands, cost estimate). Bilingual, and exposes stats tools to the AI."
         }
       }
     },
@@ -153,17 +154,17 @@
         "net.connect:https",
         "host.network:https://avatars.githubusercontent.com"
       ],
-      "latestVersion": "0.1.0",
+      "latestVersion": "0.2.0",
       "versions": [
         {
-          "version": "0.1.0",
+          "version": "0.2.0",
           "releasedAt": "2026-11-19",
           "artifacts": [
             {
               "target": "universal",
-              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/github-0.1.0.dbxp",
-              "sha256": "ddfb446f8882819f0839efbdd8943b30aa5ed649df0bd28fbe034496876361f9",
-              "size": 26565
+              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/github-0.2.0.dbxp",
+              "sha256": "87bbf907aef03c7ae46a157316e4edae7eb72d11688bb73bfcc4caf605ecc161",
+              "size": 39765
             }
           ]
         }
@@ -183,7 +184,7 @@
       "id": "market",
       "name": "Plugin Market",
       "publisher": "M-Market",
-      "description": "Plugin market for M-Harness: multi-source catalogs (DBX / DSH), search, one-click install/update/uninstall, favorites, groups, notes, and backup via JSON / WebDAV / private Gist.",
+      "description": "Plugin market for M-Harness: multi-source catalogs, search, one-click install/update/uninstall, favorites, groups, notes, and backup via JSON / WebDAV / private Gist.",
       "license": "MIT",
       "homepage": "https://github.com/1316584746/M-Market",
       "source": "https://github.com/1316584746/M-Market",
@@ -204,17 +205,17 @@
         "host.network:https://user-images.githubusercontent.com",
         "host.network:https://private-user-images.githubusercontent.com"
       ],
-      "latestVersion": "0.1.0",
+      "latestVersion": "0.1.1",
       "versions": [
         {
-          "version": "0.1.0",
+          "version": "0.1.1",
           "releasedAt": "2026-11-19",
           "artifacts": [
             {
               "target": "universal",
-              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/market-0.1.0.dbxp",
-              "sha256": "b054d689d77504fbb57c88889a83a7980daf15110bb781733cf041e6f04c2bb6",
-              "size": 37493
+              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/market-0.1.1.dbxp",
+              "sha256": "6eadeedbea2f93414ffe4448ce838627ea931329ea16af5515b56801c01c07b6",
+              "size": 37452
             }
           ]
         }
@@ -222,11 +223,11 @@
       "localizations": {
         "zh-CN": {
           "name": "插件市场",
-          "description": "多来源插件市场（DBX / DSH 目录）：搜索筛选、一键安装 / 更新 / 卸载、收藏、分组、备注，备份还原支持 JSON、WebDAV、私有 Gist。AI 可搜索和安装插件。"
+          "description": "多来源插件市场：搜索筛选、一键安装 / 更新 / 卸载、收藏、分组、备注，备份还原支持 JSON、WebDAV、私有 Gist。AI 可搜索和安装插件。"
         },
         "en": {
           "name": "Plugin Market",
-          "description": "Plugin market for M-Harness: multi-source catalogs (DBX / DSH), search, one-click install/update/uninstall, favorites, groups, notes, and backup via JSON / WebDAV / private Gist."
+          "description": "Plugin market for M-Harness: multi-source catalogs, search, one-click install/update/uninstall, favorites, groups, notes, and backup via JSON / WebDAV / private Gist."
         }
       }
     },

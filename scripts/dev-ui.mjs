@@ -8,6 +8,7 @@ import http from "node:http";
 import path from "node:path";
 import { launch, ROOT } from "../test/helpers.mjs";
 import { TOKEN, startMockGithub } from "../test/mock-github.mjs";
+import { seedTraces } from "../test/mock-traces.mjs";
 
 const id = process.argv[2];
 if (!id) {
@@ -54,6 +55,8 @@ if (id === "github") {
   console.log(`假 GitHub API：${mock.base}\n登录用的令牌：${TOKEN}`);
 }
 
+if (id === "context-insight") console.log(`假 trace：${seedTraces(home)}`);
+
 const plug = launch(id, { home, env });
 await plug.init();
 
@@ -79,7 +82,7 @@ if (id === "market") {
   await plug.call("market/saveSettings", {
     sources: [
       { id: "local", name: "本仓库目录", url: `http://127.0.0.1:${port + 1}/catalog/index.json`, enabled: true },
-      { id: "dsh-hub", name: "DSH 插件市场", url: "https://dshbazaar.io/api/index.json", enabled: true },
+      { id: "dsh-hub", name: "社区插件索引", url: "https://dshbazaar.io/api/index.json", enabled: true },
     ],
   });
 }

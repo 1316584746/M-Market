@@ -1,5 +1,5 @@
 name: site
-# 每天自动抓一次上游的 DSH 市场索引，合并本仓库的官方插件，重新生成网站并发布到 GitHub Pages。
+# 每天自动抓一次上游的社区插件索引，合并本仓库的官方插件，重新生成网站并发布到 GitHub Pages。
 # 第一次用要在仓库 Settings → Pages 里把 Source 选成「GitHub Actions」。
 on:
   schedule:

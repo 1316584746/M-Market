@@ -1,8 +1,8 @@
 {
   "id": "market",
   "name": "Plugin Market",
-  "version": "0.1.0",
-  "description": "Plugin market for M-Harness: multi-source catalogs (DBX / DSH), search, one-click install/update/uninstall, favorites, groups, notes, and backup via JSON / WebDAV / private Gist.",
+  "version": "0.1.1",
+  "description": "Plugin market for M-Harness: multi-source catalogs, search, one-click install/update/uninstall, favorites, groups, notes, and backup via JSON / WebDAV / private Gist.",
   "publisher": "M-Market",
   "license": "MIT",
   "homepage": "https://github.com/1316584746/M-Market",
@@ -24,8 +24,8 @@
     }
   ],
   "localizations": {
-    "zh-CN": { "name": "插件市场", "description": "多来源插件市场（DBX / DSH 目录）：搜索筛选、一键安装 / 更新 / 卸载、收藏、分组、备注，备份还原支持 JSON、WebDAV、私有 Gist。AI 可搜索和安装插件。" },
-    "en": { "name": "Plugin Market", "description": "Plugin market for M-Harness: multi-source catalogs (DBX / DSH), search, one-click install/update/uninstall, favorites, groups, notes, and backup via JSON / WebDAV / private Gist." }
+    "zh-CN": { "name": "插件市场", "description": "多来源插件市场：搜索筛选、一键安装 / 更新 / 卸载、收藏、分组、备注，备份还原支持 JSON、WebDAV、私有 Gist。AI 可搜索和安装插件。" },
+    "en": { "name": "Plugin Market", "description": "Plugin market for M-Harness: multi-source catalogs, search, one-click install/update/uninstall, favorites, groups, notes, and backup via JSON / WebDAV / private Gist." }
   },
   "tags": ["market", "plugins", "installer"]
 }

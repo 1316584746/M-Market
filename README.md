@@ -10,10 +10,6 @@
 
 M-Harness 里的**插件市场**，也是 M-Harness 的**官方插件仓库**。浏览、搜索、一键安装。
 
-![M-Market](assets/demo-zh.png)
-
-> 上图是「插件市场」插件在 M-Harness 里的样子：官方 DBX 插件加上社区 DSH 索引（982 个条目），按分类、星标、最近更新浏览。
-
 ## 安装
 
 M-Harness 首次启动时已经预置了这个仓库（「设置 → 插件仓库」里叫「M-Harness 官方插件」）。打开「插件」页，找到 **插件市场** 点安装；装好后用它去装别的插件。
@@ -32,7 +28,7 @@ https://raw.githubusercontent.com/1316584746/M-Market/HEAD/catalog/index.json
 
 | 插件 | 做什么 | 给 AI 的工具 |
 |---|---|---|
-| **插件市场**（`market`） | 多来源目录（DBX / DSH）、搜索 / 分类 / 排序、一键安装 / 更新 / 卸载、收藏、分组、备注、主题页、备份还原、诊断日志 | `market_search` `market_installed` `market_install` |
+| **插件市场**（`market`） | 多来源目录、搜索 / 分类 / 排序、一键安装 / 更新 / 卸载、收藏、分组、备注、主题页、备份还原、诊断日志 | `market_search` `market_installed` `market_install` |
 | **GitHub**（`github`） | 仓库、文件浏览与编辑提交、Issues、Pull Requests（diff / 审查 / 合并）、Actions、Releases、分支；**含写操作** | 8 个只读 + 10 个写（`github_issue_create` `github_pull_merge` `github_file_write` …） |
 | **MemSearch 长期记忆**（`memsearch`） | 记忆存成 Markdown，离线关键词（BM25）检索，可挂载自己的笔记目录 | `memory_search` `memory_recent` `memory_add` |
 | **上下文洞察**（`context-insight`） | 读 M-Harness 的 trace：token 走势、上下文构成、压缩事件、工具输出占用 | `context_runs` `context_stats` |
@@ -43,7 +39,7 @@ https://raw.githubusercontent.com/1316584746/M-Market/HEAD/catalog/index.json
 
 ## 插件市场能做什么
 
-- **浏览与搜索**：同时读 DBX 目录和 DSH 市场索引；分类胶囊带数量，按星标 / 最近更新 / 名称排序，类型和来源筛选；「最近更新」横条
+- **浏览与搜索**：同时读官方目录和社区插件索引；分类胶囊带数量，按星标 / 最近更新 / 名称排序，类型和来源筛选；「最近更新」横条
 - **一键安装 / 更新 / 卸载**（DBX 插件）：安装前显示它申请的权限；下载后核对目录里的 sha256 和包内 `checksums.json`，对不上不安装；只允许目录所在站点和几个常见托管站下载
 - **截图**：目录里写了截图就直接用；没写就去插件仓库的 README 里找（只认 GitHub 托管的图，徽章和别的站的图会丢掉），在详情里轮播，点图放大
 - **收藏、分组、备注**：分组可以重命名 / 删除；备注能被搜到；全部只存在本机
@@ -52,19 +48,17 @@ https://raw.githubusercontent.com/1316584746/M-Market/HEAD/catalog/index.json
 - **导出日志**：版本、来源状态、已装插件，路径和令牌已遮掉，不会发到任何地方
 - **AI 工具**：`market_search` / `market_installed` / `market_install`
 
-### 和 DSH Market 的区别（诚实说明）
-
-M-Market 的市场是**参考 [dsh-market](https://github.com/dsh-market/dsh-market) 重新写的**，布局和功能范围对标它，但不是它的移植，也没有它那么多功能：
+### 已知限制（诚实说明）
 
 - **评论**：插件窗口里没法嵌入 giscus 评论区（沙箱不允许嵌入外部页面）。「评论」按钮给出的是该插件 GitHub 仓库的 Discussions / Issues 链接，复制到浏览器打开。
-- **DSH 插件只能浏览**：M-Harness 没开放安装接口，市场是自己下载、校验、解压到 `plugins/` 目录的，只会装 DBX 包。DSH 插件请到 M-Harness 自带的「插件中心」安装。
+- **社区索引里的插件只能浏览**：M-Harness 没开放安装接口，市场是自己下载、校验、解压到 `plugins/` 目录的，只会装 DBX 包。其它格式的插件请到 M-Harness 自带的「插件中心」安装。
 - **屏蔽与全部更新**：卡片「···」里可以屏蔽不想再看到的插件（在「已屏蔽」里找回）；「已安装」里有更新时一键「全部更新」（逐个校验，一个失败不影响其他；市场自己跳过，要单独更新）
 - **没有的**：下载量统计、兼容性筛选、热禁用 / 启用、后台更新提醒（只在卡片上标「有更新」）、加载顺序与冲突诊断、GitHub 加速线路、定时自动备份。
 - **卡片上的截图**只有目录里写了 `screenshots` 的插件才有；README 里找到的图只在详情里显示（逐个插件拉 README 太慢，也费流量）。
 
 ## 网站
 
-`.github/workflows/site.yml` 每天抓一次上游 DSH 市场索引，合并本仓库的官方插件，生成可搜索的静态网站（`site/` 是样式和脚本，页面由 `scripts/build-site.mjs` 生成）并发布到 GitHub Pages。中文在根目录、英文在 `en/`，每种语言都有：首页（搜索 / 分类 / 排序）、安装页、隐私页、**每个插件一页**（含官方插件的下载链接、权限和 sha256）、404，另有 `sitemap.xml` 和 `robots.txt`。网站没有统计脚本和 Cookie。第一次要在仓库 **Settings → Pages** 里把 Source 选成 **GitHub Actions**。上游抓不到时只发布官方插件，不会让构建失败。
+`.github/workflows/site.yml` 每天抓一次上游的社区插件索引，合并本仓库的官方插件，生成可搜索的静态网站（`site/` 是样式和脚本，页面由 `scripts/build-site.mjs` 生成）并发布到 GitHub Pages。中文在根目录、英文在 `en/`，每种语言都有：首页（搜索 / 分类 / 排序）、安装页、隐私页、**每个插件一页**（含官方插件的下载链接、权限和 sha256）、404，另有 `sitemap.xml` 和 `robots.txt`。网站没有统计脚本和 Cookie。第一次要在仓库 **Settings → Pages** 里把 Source 选成 **GitHub Actions**。上游抓不到时只发布官方插件，不会让构建失败。
 
 本地预览：`node scripts/build-site.mjs --aggregate`，然后用任意静态服务器打开 `site-dist/`。
 
@@ -98,7 +92,7 @@ plugins/<id>/           每个插件的源码
   assets/icon.svg
 shared/rpc.cjs          各插件后台共用的 JSON-RPC 小库（打包时复制进 bin/rpc.cjs）
 scripts/pack.mjs        打包 + 生成目录；加 --check 只校验
-scripts/build-site.mjs  生成网站 site-dist/；加 --aggregate 合并上游 DSH 索引
+scripts/build-site.mjs  生成网站 site-dist/；加 --aggregate 合并上游社区索引
 scripts/dev-ui.mjs      在普通浏览器里调界面（假宿主 + 假 GitHub / 本地目录）
 site/                   网站模板（纯静态，GitHub Pages）
 assets/                 README 用的图
@@ -130,10 +124,10 @@ node scripts/dev-ui.mjs market  # 在浏览器里调市场界面（github / 其�
 这些插件**不是**上游项目的移植，而是参考上游的产品思路、针对 M-Harness 的插件宿主重新写的精简版：
 
 - MemSearch：参考 [zilliztech/memsearch](https://github.com/zilliztech/memsearch)（MIT）的「Markdown 是事实来源」。没有向量检索 / Milvus，只有关键词检索。**不会**在每次对话前后自动读写记忆（M-Harness 目前没有生命周期钩子），需要 AI 主动调用工具；界面里附了一段可加到「规则」里的提示词。
-- 上下文洞察：参考 [bowenliang123/dsh-context](https://github.com/bowenliang123/dsh-context)（Apache-2.0）。只有 M-Harness 的 trace 里有的数据：没有缓存命中率和 Agent 父子网络；token 数模型返回了就用真实值，否则估算。
+- 上下文洞察：参考公开的同类上下文分析工具的产品思路，代码完全为 M-Harness 的 trace 格式重写。只有 trace 里有的数据：没有缓存命中率和 Agent 父子网络；token 数模型返回了就用真实值，否则估算；费用按「设置」里各模型 / Agent 提供方对应的模型计价（见插件设置）。
 - billion-context：只是管理器，不含它的代码。使用它须遵守其许可证的「产品出处标注」条款，插件界面底部和 `NOTICE.md` 已标注。
-- 侧边工作台：参考 DSH-better-sidebar（MIT）。**没有**终端、侧边对话、子代理页，没有语法高亮。
-- 插件市场：见上面「和 DSH Market 的区别」。
+- 侧边工作台：参考公开的同类侧边栏插件的产品形态。**没有**终端、侧边对话、子代理页，没有语法高亮。
+- 插件市场：功能范围和限制见上面「插件市场能做什么」和「已知限制」。
 - GitHub：直接调 GitHub REST API。
 
 ## 许可

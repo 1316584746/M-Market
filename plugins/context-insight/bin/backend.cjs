@@ -2,7 +2,7 @@
 /**
  * 上下文洞察：读 M-Harness 的 trace（<家目录>/.traces/*.jsonl），统计每次运行的 token 走势、
  * 上下文构成（system / user / assistant / tool）、压缩事件和各工具的输出体量。
- * 只读，不改任何文件。灵感来自 bowenliang123/dsh-context（Apache-2.0），这里是为 M-Harness 的 trace 重写的精简版。
+ * 只读，不改任何文件。这里是为 M-Harness 的 trace 格式编写的精简版。
  */
 const fs = require("node:fs");
 const path = require("node:path");
@@ -12,6 +12,7 @@ const ID = "context-insight";
 const VERSION = require("../manifest.json").version;
 const MAX_FILE = 192 * 1024 * 1024;
 const store = settings();
+const { createInsight } = require("./insight.cjs");
 
 // ───────── 估算 ─────────
 
@@ -221,6 +222,40 @@ function stepMessages(file, step, limit = 200) {
   return [];
 }
 
+const insight = createInsight({
+  est,
+  readLines,
+  store,
+  config: () => harnessConfig(harnessHome()),
+  listFiles() {
+    const { active } = traceDirs();
+    if (!active || !fs.existsSync(active)) return [];
+    return fs
+      .readdirSync(active)
+      .filter(f => f.endsWith(".jsonl"))
+      .map(f => ({ f: path.join(active, f), m: fs.statSync(path.join(active, f)).mtimeMs }))
+      .sort((a, b) => b.m - a.m)
+      .map(x => x.f);
+  },
+});
+
+const PREF_KEYS = {
+  lang: v => (v === "en" ? "en" : "zh"),
+  range: v => (["today", "7", "30"].includes(String(v)) ? String(v) : "7"),
+  sort: v => (["recent", "tokens", "context"].includes(v) ? v : "recent"),
+  group: v => (v === "provider" ? "provider" : "none"),
+  prices: v => (Array.isArray(v) ? v.filter(x => x && String(x.match || "").trim()).slice(0, 40).map(x => ({ match: String(x.match).trim(), in: Number(x.in) || 0, out: Number(x.out) || 0 })) : []),
+};
+const prefs = () => {
+  const s = store.get();
+  const out = {};
+  for (const [k, f] of Object.entries(PREF_KEYS)) out[k] = f(s[k]);
+  return out;
+};
+
+const fmtTok = n => (n >= 1e6 ? (n / 1e6).toFixed(2) + "M" : n >= 1e4 ? (n / 1e3).toFixed(1) + "k" : String(Math.round(n)));
+const fmtCost = c => (c == null ? "—" : c < 0.01 ? "<$0.01" : "$" + c.toFixed(2));
+
 // ───────── 给 AI 的文字报告 ─────────
 
 function report(run) {
@@ -262,8 +297,37 @@ serve({
     "runs/list": async p => listRuns(Number(p.limit) || 60),
     "runs/get": async p => analyze(fileOf(p.name)),
     "runs/messages": async p => stepMessages(fileOf(p.name), Number(p.step), Number(p.limit) || 200),
+    // 洞察页 / Context 详情
+    "insights/overview": async p => insight.overview(p || {}),
+    "session/get": async p => insight.detail(fileOf(p.name)),
+    "session/messages": async p => insight.messages(fileOf(p.name), Number(p.step)),
+    "prefs/get": async () => ({ ...prefs(), prices: store.get().prices || [], builtin: insight.PRICES.map(x => ({ match: x[0].source, in: x[1], out: x[2] })) }),
+    "prefs/set": async p => {
+      const patch = {};
+      for (const [k, f] of Object.entries(PREF_KEYS)) if (p && k in p) patch[k] = f(p[k]);
+      store.set(patch);
+      return { ...prefs(), prices: store.get().prices || [] };
+    },
   },
   tools: [
+    {
+      name: "context_overview",
+      description: "洞察总览：最近一段时间（today / 7 / 30 天）的会话数、token 用量与成本估算、最常用的技能 / 工具 / 命令、上下文构成。",
+      readOnly: true,
+      inputSchema: { type: "object", properties: { range: { type: "string", description: "today / 7 / 30，默认 7" } } },
+      run: async a => {
+        const o = insight.overview({ range: a.range });
+        const k = o.kpi;
+        if (!k.sessions) return "这段时间没有 trace 记录。";
+        const L = [`最近 ${o.range === "today" ? "今天" : o.range + " 天"}：${k.sessions} 个会话、${k.steps} 次模型调用、${k.toolExec} 次工具执行；累计 ${fmtTok(k.tokens)} token（输入 ${fmtTok(k.input)} / 输出 ${fmtTok(k.output)}），估算成本 ${fmtCost(k.cost)}`];
+        const all = Object.values(o.comp).reduce((n, v) => n + v, 0) || 1;
+        L.push("上下文构成：" + insight.CATS.map(c => `${c} ${Math.round((o.comp[c] / all) * 100)}%`).join("、"));
+        if (o.tools.length) L.push("常用工具：" + o.tools.slice(0, 6).map(x => `${x.name}×${x.count}`).join("、"));
+        if (o.skills.length) L.push("常用技能：" + o.skills.slice(0, 6).map(x => `${x.name}×${x.count}`).join("、"));
+        if (o.commands.length) L.push("常用命令：" + o.commands.slice(0, 6).map(x => `${x.name}×${x.count}`).join("、"));
+        return L.join("\n");
+      },
+    },
     {
       name: "context_runs",
       description: "列出最近的运行记录（trace）：名字、模型、步数、累计 token、压缩次数。想看某次运行的上下文情况，先用它找到名字。",
@@ -287,7 +351,13 @@ serve({
           if (!r) throw new Error("没有找到 trace 记录");
           name = r.name;
         }
-        return report(analyze(fileOf(name)));
+        const f = fileOf(name);
+        const d = insight.detail(f);
+        const extra = [];
+        if (d.stats.cost != null) extra.push(`估算成本 ${fmtCost(d.stats.cost)}（按 ${d.model || "?"} 单价）`);
+        if (d.skills.length) extra.push("使用的技能：" + d.skills.map(x => `${x.name}×${x.count}`).join("、"));
+        if (d.commands.programs.length) extra.push("执行的命令：" + d.commands.programs.slice(0, 6).map(x => `${x.program}×${x.count}${x.fails ? `（失败 ${x.fails}）` : ""}`).join("、"));
+        return [report(analyze(f)), ...extra].join("\n");
       },
     },
   ],

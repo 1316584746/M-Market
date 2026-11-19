@@ -159,7 +159,7 @@
   function card(x) {
     const u = esc(x.uid);
     const meta = [x.author, x.version && "v" + x.version, x.stars != null && "★ " + fmtStars(x.stars), x.updated].filter(Boolean).map(esc).join(" · ");
-    const badges = (x.category ? '<span class="badge">' + esc(x.category) + "</span>" : "") + '<span class="badge kind">' + (x.kind === "dbx" ? "DBX" : "DSH") + "</span>" + x.tags.slice(0, 3).map(t => '<span class="badge">' + esc(t) + "</span>").join("");
+    const badges = (x.category ? '<span class="badge">' + esc(x.category) + "</span>" : "") + '<span class="badge kind">' + (x.kind === "dbx" ? "DBX" : "社区") + "</span>" + x.tags.slice(0, 3).map(t => '<span class="badge">' + esc(t) + "</span>").join("");
     const shots = x.screenshots.length ? '<div class="shots">' + x.screenshots.slice(0, 2).map(s => '<button data-act="detail" data-uid="' + u + '" aria-label="查看截图"><img src="' + esc(s) + '" alt="" referrerpolicy="no-referrer" onerror="this.parentNode.remove()" /></button>').join("") + "</div>" : "";
     return '<article class="card"><div class="r1">' + icoOf(x) + '<div class="t"><div class="name"><span class="nm" title="' + esc(x.name) + '">' + esc(x.name) + "</span>" +
       (x.repo ? '<button class="src" data-act="detail" data-uid="' + u + '" title="源码与链接">' + IC.gh + "</button>" : "") + (x.update ? '<span class="upd">有更新</span>' : "") +
@@ -270,11 +270,11 @@
     if (x.homepage && x.homepage !== repo) links.push(["主页", x.homepage]);
     if (gh) links.push(["更新记录", repo + "/releases"]);
     const d = openDialog(
-      '<div class="r1" style="display:flex;gap:10px;align-items:center">' + icoOf(x) + '<div style="flex:1;min-width:0"><h3 style="margin:0">' + esc(x.name) + ' <span class="badge kind">' + (x.kind === "dbx" ? "DBX" : "DSH") + "</span></h3>" +
+      '<div class="r1" style="display:flex;gap:10px;align-items:center">' + icoOf(x) + '<div style="flex:1;min-width:0"><h3 style="margin:0">' + esc(x.name) + ' <span class="badge kind">' + (x.kind === "dbx" ? "DBX" : "社区") + "</span></h3>" +
       '<div class="hint">' + [x.author, x.version && "v" + x.version, x.license, x.updated, x.stars != null && "★ " + x.stars].filter(Boolean).map(esc).join(" · ") + "</div></div>" + (x.kind === "dbx" && x.installed && !x.update ? '<button class="pill done" disabled>已安装</button>' : x.kind === "dbx" && x.installable ? btn("primary", x.installed ? "更新" : "安装", 'data-dlg="install"') : "") + "</div>" +
       '<div id="gal" class="gal" hidden></div>' +
       '<p style="white-space:pre-wrap">' + esc(x.description || "（没有简介）") + "</p>" +
-      (x.kind === "dsh" ? '<p class="hint">这是 DSH 插件：请到 M-Harness 的「插件中心」里安装。这里只能浏览。</p>' : "") +
+      (x.kind === "dsh" ? '<p class="hint">这是社区索引里的插件：请到 M-Harness 的「插件中心」里安装。这里只能浏览。</p>' : "") +
       (x.tags.length ? "<div>" + x.tags.map(t => '<span class="badge">' + esc(t) + "</span> ").join("") + "</div>" : "") +
       (x.permissions.length ? "<h4>权限</h4><div>" + x.permissions.map(p => '<span class="perm">' + esc(p) + "</span>").join("") + "</div>" : "") +
       (links.length ? "<h4>链接（点一下全选，复制后到浏览器打开）</h4>" + links.map(l => linkRow(l[0], l[1])).join("") : "") +
@@ -346,8 +346,8 @@
     adv.innerHTML = '<div class="hint pad">加载中…</div>';
     call("market/settings").then(cfg => {
       adv.innerHTML =
-        '<div class="panel"><h3>目录来源</h3><div class="hint">DBX 来源的插件可以在这里直接安装；DSH 来源只用来浏览。</div><div id="srcs" style="margin-top:8px"></div>' +
-        '<div class="row"><input class="dbx-input" id="src-name" placeholder="名称" style="max-width:150px;flex:none" /><input class="dbx-input" id="src-url" placeholder="目录地址（https://…/index.json，DBX 目录或 DSH 市场索引）" />' + btn("ghost sm", "添加", 'id="src-add"') + "</div>" +
+        '<div class="panel"><h3>目录来源</h3><div class="hint">DBX 来源的插件可以在这里直接安装；社区索引来源只用来浏览。</div><div id="srcs" style="margin-top:8px"></div>' +
+        '<div class="row"><input class="dbx-input" id="src-name" placeholder="名称" style="max-width:150px;flex:none" /><input class="dbx-input" id="src-url" placeholder="目录地址（https://…/index.json，DBX 目录或社区插件索引）" />' + btn("ghost sm", "添加", 'id="src-add"') + "</div>" +
         '<div class="row">' + btn("primary sm", "保存来源并刷新", 'id="src-save"') + btn("ghost sm", "恢复默认", 'id="src-reset"') + "</div></div>" +
         '<div class="panel"><h3>备份与还原</h3><div class="hint">收藏、分组、备注、来源</div><h4>JSON 文件</h4>' +
         '<textarea class="dbx-textarea" id="bk-text" placeholder="点「导出」生成备份 JSON；要还原时把备份粘贴到这里，再点「导入（合并）」"></textarea>' +

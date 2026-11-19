@@ -2,7 +2,7 @@
 /**
  * Better Sidebar（精简版）：给 M-Harness 的文件树、文本查看 / 编辑、搜索和 Git 状态 / diff。
  * 所有路径都限制在「工作区根目录」之内（含符号链接检查）；Git 只做只读查询加暂存 / 取消暂存。
- * 产品形态参考 DSH-better-sidebar（MIT）；这里是针对 M-Harness 插件宿主重写的精简版，没有终端、侧边对话、子代理页。
+ * 这里是针对 M-Harness 插件宿主重写的精简版，没有终端、侧边对话、子代理页。
  */
 const fs = require("node:fs");
 const path = require("node:path");

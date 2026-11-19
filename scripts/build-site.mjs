@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // 生成对外网站（纯静态，可放 GitHub Pages）：site-dist/
 //   node scripts/build-site.mjs                 只含本仓库的官方插件
-//   node scripts/build-site.mjs --aggregate     再抓上游的 DSH 市场索引，合并成一份可搜索的目录（每日 CI 用）
-//   --upstream <url>  可重复；不给就用默认的 DSH 插件市场索引
+//   node scripts/build-site.mjs --aggregate     再抓上游的社区插件索引，合并成一份可搜索的目录（每日 CI 用）
+//   --upstream <url>  可重复；不给就用默认的社区插件索引
 // 环境变量 SITE_URL：网站的公开地址（写进 sitemap），默认 https://1316584746.github.io/M-Market
 // 上游抓不到时不会让构建失败：那一家跳过并在日志里说明；全部抓不到也只剩官方插件。
 //
@@ -84,11 +84,11 @@ const T = {
     brand: "M-Market",
     tagline: "M-Harness 的插件市场",
     title: "M-Market 插件市场",
-    desc: "M-Harness 的插件市场：官方 DBX 插件加上社区 DSH 插件索引，可搜索、可筛选。",
+    desc: "M-Harness 的插件市场：官方 DBX 插件加上社区插件索引，可搜索、可筛选。",
     nav: { home: "插件", install: "安装", privacy: "隐私", source: "源码" },
     heroSub: "发现社区为 M-Harness 打造的能力",
     search: "搜索：名称、作者、标签…",
-    kinds: ["全部类型", "DBX（M-Harness 可一键安装）", "DSH（社区索引，仅浏览）"],
+    kinds: ["全部类型", "DBX（M-Harness 可一键安装）", "社区（仅浏览）"],
     allCats: "全部分类",
     sorts: ["按星标", "按最近更新", "按名称"],
     loading: "加载中…",
@@ -100,13 +100,14 @@ const T = {
     none: "没有符合条件的插件",
     noDesc: "（没有简介）",
     official: "官方",
+    communityTag: "社区",
     generated: d => `目录生成于 ${d}。`,
     failed: "目录加载失败：",
     details: "详情",
     download: "下载安装包",
     repo: "仓库",
     homepage: "主页",
-    footer: "DSH 条目来自社区索引，仅供浏览，装之前请自己看一眼源码。",
+    footer: "「社区」条目来自社区索引，仅供浏览，装之前请自己看一眼源码。",
     sw: "English",
     // 详情页
     back: "← 返回插件列表",
@@ -120,7 +121,7 @@ const T = {
     installDbx: "在 M-Harness 里打开「插件市场」插件，搜索它，点「安装」。安装前会显示它申请的权限。",
     installDbxSite: "还没有插件市场？先看",
     installPage: "安装页",
-    installDsh: "这是 DSH 社区插件，M-Market 的市场只能浏览它。请到 M-Harness 自带的「插件中心」安装，装之前请自己看一眼源码。",
+    installDsh: "这是社区索引里的插件，M-Market 的市场只能浏览它。请到 M-Harness 自带的「插件中心」安装，装之前请自己看一眼源码。",
     permsH: "申请的权限",
     noPerms: "没有声明权限",
     checksum: "安装包 sha256",
@@ -138,17 +139,17 @@ const T = {
     catalogUrl: "目录地址",
     reqH: "要求",
     req: "M-Harness 要带「按脚本启动后台程序」的支持。更早的版本只能启动原生可执行文件，这些插件在那样的版本上装得上但跑不起来。",
-    diffH: "和 DSH Market 的区别",
+    diffH: "已知限制",
     diff: [
       "评论：插件窗口里没法嵌入评论区，只给出该插件 GitHub 仓库的讨论链接。",
-      "DSH 插件只能浏览，不能在这里安装。",
+      "社区索引里的插件只能浏览，不能在这里安装。",
       "没有下载量统计、兼容性筛选、热禁用 / 启用、后台更新提醒。",
     ],
     // 隐私页
     privacyTitle: "隐私",
     privacy: [
       ["网站", "这是个纯静态网站，没有统计脚本、没有 Cookie，也不收集你的任何信息。部分插件卡片的头像图片来自 github.com，浏览器会因此访问 GitHub。"],
-      ["插件市场（M-Harness 里的插件）", "它只会访问：你在「备份与来源」里设置的目录地址（默认是 raw.githubusercontent.com 上的本仓库目录和 dshbazaar.io 的 DSH 索引）、下载安装包的站点、GitHub（头像、README 里的截图）。**不会**向 M-Market 的作者上报任何使用数据。"],
+      ["插件市场（M-Harness 里的插件）", "它只会访问：你在「备份与来源」里设置的目录地址（默认是 raw.githubusercontent.com 上的本仓库目录和社区插件索引站点 dshbazaar.io）、下载安装包的站点、GitHub（头像、README 里的截图）。**不会**向 M-Market 的作者上报任何使用数据。"],
       ["保存在本机的东西", "收藏、分组、备注和来源列表存在插件自己的数据目录里。如果你配置了 WebDAV 或私有 Gist 同步，备份会上传到你自己指定的地方；WebDAV 密码和 GitHub 令牌以明文存在插件数据目录，备份文件里不含它们。"],
       ["导出日志", "只在你点「导出日志」时生成，路径和令牌已遮掉，不会自动发送到任何地方。"],
       ["GitHub 插件", "它用你填的个人访问令牌直接调用 GitHub API，请求只发往 api.github.com（和你设置的 GitHub 企业版地址）。令牌以明文存在插件数据目录。"],
@@ -161,11 +162,11 @@ const T = {
     brand: "M-Market",
     tagline: "Plugin market for M-Harness",
     title: "M-Market Plugin Market",
-    desc: "The plugin market for M-Harness: official DBX plugins plus the community DSH plugin index, searchable and filterable.",
+    desc: "The plugin market for M-Harness: official DBX plugins plus the community plugin index, searchable and filterable.",
     nav: { home: "Plugins", install: "Install", privacy: "Privacy", source: "Source" },
     heroSub: "Discover what the community builds for M-Harness",
     search: "Search: name, author, tag…",
-    kinds: ["All types", "DBX (one-click install in M-Harness)", "DSH (community index, browse only)"],
+    kinds: ["All types", "DBX (one-click install in M-Harness)", "Community (browse only)"],
     allCats: "All categories",
     sorts: ["By stars", "By recent update", "By name"],
     loading: "Loading…",
@@ -177,13 +178,14 @@ const T = {
     none: "No matching plugins",
     noDesc: "(no description)",
     official: "Official",
+    communityTag: "Community",
     generated: d => `Catalog generated ${d}.`,
     failed: "Failed to load the catalog: ",
     details: "Details",
     download: "Download package",
     repo: "Repository",
     homepage: "Homepage",
-    footer: "DSH entries come from a community index and are browse-only; read the source before you install.",
+    footer: "\"Community\" entries come from a community index and are browse-only; read the source before you install.",
     sw: "中文",
     back: "← Back to plugins",
     by: "Author",
@@ -196,7 +198,7 @@ const T = {
     installDbx: "In M-Harness, open the Plugin Market plugin, search for it and click Install. The permissions it asks for are shown first.",
     installDbxSite: "No Plugin Market yet? See the",
     installPage: "install page",
-    installDsh: "This is a community DSH plugin; the M-Market market can only browse it. Install it from M-Harness's own plugin center, and read the source first.",
+    installDsh: "This is a plugin from the community index; the M-Market market can only browse it. Install it from M-Harness's own plugin center, and read the source first.",
     permsH: "Permissions it asks for",
     noPerms: "No permissions declared",
     checksum: "Package sha256",
@@ -213,16 +215,16 @@ const T = {
     catalogUrl: "Catalog URL",
     reqH: "Requirement",
     req: "An M-Harness build that can start script backends. Older builds can only launch native executables: these plugins install there but will not run.",
-    diffH: "How it differs from DSH Market",
+    diffH: "Known limitations",
     diff: [
       "Comments: a plugin window cannot embed a comment section; it only gives the repository's discussion links.",
-      "DSH plugins are browse-only; they cannot be installed here.",
+      "Plugins from the community index are browse-only; they cannot be installed here.",
       "No download statistics, compatibility filter, hot disable / enable or background update reminders.",
     ],
     privacyTitle: "Privacy",
     privacy: [
       ["This website", "A purely static site: no analytics, no cookies, nothing collected. Some plugin cards load avatar images from github.com, so your browser contacts GitHub for those."],
-      ["Plugin Market (inside M-Harness)", "It only contacts: the catalog URLs you configure under \"Backup & sources\" (by default this repository's catalog on raw.githubusercontent.com and the DSH index at dshbazaar.io), the host a package is downloaded from, and GitHub (avatars, README screenshots). It **never** reports usage data to M-Market's authors."],
+      ["Plugin Market (inside M-Harness)", "It only contacts: the catalog URLs you configure under \"Backup & sources\" (by default this repository's catalog on raw.githubusercontent.com and the community plugin index site dshbazaar.io), the host a package is downloaded from, and GitHub (avatars, README screenshots). It **never** reports usage data to M-Market's authors."],
       ["What stays on your machine", "Favorites, groups, notes and the source list live in the plugin's own data directory. If you configure WebDAV or private Gist sync, backups go to the place you choose; the WebDAV password and GitHub token are stored in plain text in the plugin data directory, and backup files never contain them."],
       ["Export log", "Only generated when you click Export log; paths and tokens are masked, and nothing is sent automatically."],
       ["GitHub plugin", "It calls the GitHub API with the personal access token you enter; requests only go to api.github.com (and a GitHub Enterprise URL if you set one). The token is stored in plain text in the plugin data directory."],
@@ -264,7 +266,7 @@ ${script}</body>
 export function renderIndex(lang, now) {
   const t = T[lang];
   const root = lang === "en" ? "../" : "";
-  const cfg = { lang, data: root + (lang === "en" ? "catalog.en.json" : "catalog.json"), t: { loading: t.loading, none: t.none, noDesc: t.noDesc, official: t.official, details: t.details, prev: t.prev, next: t.next, failed: t.failed } };
+  const cfg = { lang, data: root + (lang === "en" ? "catalog.en.json" : "catalog.json"), t: { loading: t.loading, none: t.none, noDesc: t.noDesc, official: t.official, community: t.communityTag, details: t.details, prev: t.prev, next: t.next, failed: t.failed } };
   // 带函数的文案不能直接序列化：页面里用占位符模板
   cfg.t.count = lang === "en" ? "{n} plugins listed ({o} official)" : "共收录 {n} 个插件（官方 {o} 个）";
   cfg.t.pageInfo = lang === "en" ? "Page {p} / {ps}, {n} total" : "第 {p} / {ps} 页，共 {n} 个";
@@ -324,7 +326,7 @@ export function renderPlugin(lang, p) {
     : `<p>${esc(t.installDsh)}</p>`;
   const body = `<main class="wrap doc"><p><a href="${base}index.html">${esc(t.back)}</a></p>
 <div class="phead">${p.icon ? `<img class="pico" src="${esc(p.icon)}" alt="" width="56" height="56" referrerpolicy="no-referrer" />` : ""}<div><h1>${esc(p.name)}</h1><p class="hint">${meta.map(([k, v]) => `${esc(k)}: ${esc(v)}`).join(" · ")}</p></div></div>
-<p>${p.official ? `<span class="tag">${esc(t.official)}</span> ` : ""}<span class="tag kind">${p.kind === "dbx" ? "DBX" : "DSH"}</span> ${(p.tags || []).map(x => `<span class="tag">${esc(x)}</span>`).join(" ")}</p>
+<p>${p.official ? `<span class="tag">${esc(t.official)}</span> ` : ""}<span class="tag kind">${p.kind === "dbx" ? "DBX" : t.communityTag}</span> ${(p.tags || []).map(x => `<span class="tag">${esc(x)}</span>`).join(" ")}</p>
 <p class="desc">${esc(p.description || t.noDesc)}</p>
 <p class="links">${links.join(" · ")}</p>
 <h2>${esc(t.installH)}</h2>${install}

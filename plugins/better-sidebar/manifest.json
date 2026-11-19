@@ -1,7 +1,7 @@
 {
   "id": "better-sidebar",
   "name": "Better Sidebar",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "侧边工作台（精简版）：文件树、文本查看 / 编辑、文件名和内容搜索、Git 状态 / diff / 暂存。",
   "publisher": "M-Market",
   "license": "MIT",

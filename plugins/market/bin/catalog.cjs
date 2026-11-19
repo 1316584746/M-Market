@@ -2,7 +2,7 @@
 /**
  * 目录解析：把几种来源统一成一种条目。
  *   - DBX 目录（catalog/index.json：{ plugins: [{ id, versions: [{ artifacts }] }] }），可以直接安装
- *   - DSH 市场索引（format 1：{ plugins: [{ name, versions: [{ source }] }] }），这里只浏览，安装要到 M-Harness 自己的插件中心
+ *   - 社区插件索引（format 1：{ plugins: [{ name, versions: [{ source }] }] }），这里只浏览，安装要到 M-Harness 自己的插件中心
  */
 
 const isObj = v => !!v && typeof v === "object" && !Array.isArray(v);
@@ -103,10 +103,10 @@ function parseDbx(json, sourceName, lang = "zh-CN") {
   return out;
 }
 
-/** DSH 市场索引（format 1）：每个插件取最高的正式版 */
+/** 社区插件索引（format 1）：每个插件取最高的正式版 */
 function parseDsh(json, sourceName, lang = "zh") {
   const list = isObj(json) && Array.isArray(json.plugins) ? json.plugins : null;
-  if (!list) throw new Error("这个目录里没有 plugins 列表，不是 DSH 市场索引");
+  if (!list) throw new Error("这个目录里没有 plugins 列表，不是社区插件索引");
   const cats = isObj(json.metadata?.categories) ? json.metadata.categories : {};
   const out = [];
   const seen = new Set();
@@ -147,7 +147,7 @@ function parseDsh(json, sourceName, lang = "zh") {
       source: sourceName,
       permissions: [],
       install: undefined,
-      noInstallReason: "这是 DSH 插件：请到 M-Harness 的「插件中心」里安装",
+      noInstallReason: "这是社区索引里的插件：请到 M-Harness 的「插件中心」里安装",
     });
   }
   return out;
