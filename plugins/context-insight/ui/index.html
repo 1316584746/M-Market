@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>上下文洞察</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<header class="top">
+  <div class="title">上下文洞察 <span class="dbx-badge" id="count"></span></div>
+  <div class="dir">
+    <span class="dbx-hint" id="dir">正在查找 trace 目录…</span>
+    <button class="dbx-btn dbx-btn--ghost" id="chdir" title="手动指定 trace 目录">修改目录</button>
+    <button class="dbx-btn" id="refresh">刷新</button>
+  </div>
+</header>
+<div class="editdir" id="editdir" hidden>
+  <input class="dbx-input" id="dirin" placeholder="trace 目录的完整路径（留空 = 自动查找）" />
+  <button class="dbx-btn dbx-btn--primary" id="dirok">确定</button>
+  <button class="dbx-btn" id="dircancel">取消</button>
+  <span class="warn" id="direrr"></span>
+</div>
+<main class="layout">
+  <aside class="runs" id="runs"><div class="dbx-hint pad">加载中…</div></aside>
+  <section class="detail" id="detail"><div class="dbx-hint pad">从左侧选一次运行，看它的 token 走势和上下文构成。</div></section>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

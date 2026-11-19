@@ -1,0 +1,31 @@
+{
+  "id": "memsearch",
+  "name": "MemSearch",
+  "version": "0.1.0",
+  "description": "给 M-Harness 的长期记忆：Markdown 存储、离线关键词检索、可挂载自己的笔记目录；AI 能通过 memory_search / memory_add 使用。",
+  "publisher": "M-Market",
+  "license": "MIT",
+  "homepage": "https://github.com/1316584746/M-Market",
+  "icon": "assets/icon.svg",
+  "permissions": ["host.storage", "fs.read", "fs.write"],
+  "entrypoints": {
+    "backend": { "executable": "bin/backend.cjs" },
+    "ui": { "root": "ui", "entry": "ui/index.html" }
+  },
+  "contributions": [
+    { "type": "workbench", "icon": "assets/icon.svg", "label": "MemSearch" },
+    {
+      "type": "mcp",
+      "tools": {
+        "memory_search": { "description": "检索长期记忆和笔记" },
+        "memory_recent": { "description": "最近的记忆" },
+        "memory_add": { "description": "记一条新记忆" }
+      }
+    }
+  ],
+  "localizations": {
+    "zh-CN": { "name": "MemSearch 长期记忆", "description": "给 M-Harness 的长期记忆：Markdown 存储、离线关键词检索、可挂载自己的笔记目录；AI 能通过 memory_search / memory_add 使用。" },
+    "en": { "name": "MemSearch", "description": "Long-term memory for M-Harness: Markdown storage, offline keyword search, mountable note folders, and memory_search / memory_add tools for the AI." }
+  },
+  "tags": ["memory", "search", "markdown"]
+}

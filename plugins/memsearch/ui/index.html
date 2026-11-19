@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MemSearch</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<header class="top">
+  <div class="title">MemSearch <span class="dbx-badge" id="stat"></span></div>
+  <nav class="tabs" id="tabs">
+    <button data-t="search" class="on">搜索</button>
+    <button data-t="add">记一条</button>
+    <button data-t="sources">笔记目录</button>
+    <button data-t="ai">让 AI 使用</button>
+  </nav>
+</header>
+<main>
+  <section id="t-search">
+    <div class="bar">
+      <input class="dbx-input" id="q" placeholder="输入关键词搜索记忆和笔记（留空 = 看最近的记忆）" />
+      <select class="dbx-select" id="kind"><option value="">全部</option><option value="memory">只看记忆</option><option value="note">只看笔记</option></select>
+      <button class="dbx-btn dbx-btn--primary" id="go">搜索</button>
+    </div>
+    <div id="results"></div>
+  </section>
+  <section id="t-add" hidden>
+    <div class="form">
+      <label class="dbx-label">标题（可选）</label>
+      <input class="dbx-input" id="a-title" placeholder="一句话概括" />
+      <label class="dbx-label">标签（可选，逗号分隔）</label>
+      <input class="dbx-input" id="a-tags" placeholder="例如：部署, 约定" />
+      <label class="dbx-label">内容（Markdown）</label>
+      <textarea class="dbx-textarea" id="a-text" rows="9" placeholder="只记以后还会用到的事实、决定和偏好"></textarea>
+      <div class="row"><button class="dbx-btn dbx-btn--primary" id="a-save">保存</button><span id="a-msg" class="dbx-hint"></span></div>
+    </div>
+  </section>
+  <section id="t-sources" hidden>
+    <p class="dbx-hint">把你已有的笔记文件夹（.md / .markdown / .txt）挂进来，会和记忆一起被检索。只读，不会修改你的文件；单文件 ≤ 1 MB，最多 1500 个文件。</p>
+    <div class="bar">
+      <input class="dbx-input" id="s-path" placeholder="笔记目录的完整路径，例如 D:\notes" />
+      <button class="dbx-btn dbx-btn--primary" id="s-add">添加</button>
+    </div>
+    <div id="s-err" class="warn"></div>
+    <div id="s-list"></div>
+    <p class="dbx-hint" id="s-dir"></p>
+  </section>
+  <section id="t-ai" hidden>
+    <p>装好并「确认信任」后，到 M-Harness 的「让 AI 使用插件」里打开 <b>MemSearch</b>，AI 就能用这三个工具：</p>
+    <ul>
+      <li><code>memory_search</code>：按关键词检索记忆和笔记（只读，AI 直接用）</li>
+      <li><code>memory_recent</code>：看最近记下的几条（只读）</li>
+      <li><code>memory_add</code>：记一条新记忆（会改东西，每次需要你批准）</li>
+    </ul>
+    <p>插件本身不会自动在每次对话前后读写记忆（M-Harness 目前没有这类钩子）。想让 AI 养成习惯，把下面这段加到「设置 → 规则」里：</p>
+    <textarea class="dbx-textarea" id="rule" rows="6" readonly></textarea>
+    <div class="row"><button class="dbx-btn" id="rule-sel">全选</button><span class="dbx-hint">选中后按 Ctrl+C（Mac 用 Cmd+C）复制</span></div>
+  </section>
+</main>
+<footer class="foot dbx-hint">思路来自 <a class="dbx-link">zilliztech/memsearch</a>（MIT）：Markdown 是事实来源。这里是离线的关键词（BM25）检索，没有向量库。</footer>
+<script src="app.js"></script>
+</body>
+</html>

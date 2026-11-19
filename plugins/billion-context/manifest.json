@@ -1,0 +1,21 @@
+{
+  "id": "billion-context",
+  "name": "billion-context",
+  "version": "0.1.0",
+  "description": "billion-context 上下文压缩代理的管理器：一键安装 / 启动 / 停止，并给出 M-Harness 各模型提供方走代理的地址。",
+  "publisher": "M-Market",
+  "license": "MIT",
+  "homepage": "https://github.com/ranxianglei/billion-context",
+  "icon": "assets/icon.svg",
+  "permissions": ["fs.read", "process.spawn", "net.listen:localhost"],
+  "entrypoints": {
+    "backend": { "executable": "bin/backend.cjs" },
+    "ui": { "root": "ui", "entry": "ui/index.html" }
+  },
+  "contributions": [{ "type": "workbench", "icon": "assets/icon.svg", "label": "billion-context" }],
+  "localizations": {
+    "zh-CN": { "name": "billion-context 上下文压缩", "description": "billion-context 上下文压缩代理的管理器：一键安装 / 启动 / 停止，并给出 M-Harness 各模型提供方走代理的地址。使用 billion-context 与 acp-kernel（MIT，含出处标注条款）。" },
+    "en": { "name": "billion-context", "description": "Manager for the billion-context compression proxy: install / start / stop, and proxy URLs for each M-Harness model provider. Uses billion-context and acp-kernel (MIT with attribution term)." }
+  },
+  "tags": ["context", "compression", "proxy"]
+}

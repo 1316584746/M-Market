@@ -1,0 +1,27 @@
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { font: 13px/1.55 system-ui, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; background: var(--color-background); color: var(--color-foreground); display: flex; flex-direction: column; }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--color-border); flex-wrap: wrap; }
+.title { font-weight: 600; font-size: 14px; }
+.tabs { display: flex; gap: 2px; }
+.tabs button { border: 0; background: transparent; color: var(--color-muted-foreground); padding: 4px 10px; border-radius: 6px; font: inherit; cursor: pointer; }
+.tabs button.on { background: var(--color-accent); color: var(--color-foreground); }
+main { flex: 1; overflow: auto; padding: 12px; }
+section[hidden] { display: none; }
+.bar { display: flex; gap: 6px; margin-bottom: 10px; }
+.bar .dbx-input { flex: 1; }
+.bar .dbx-select { width: 110px; }
+.form { max-width: 720px; display: grid; gap: 6px; }
+.row { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
+.hit { border: 1px solid var(--color-border); background: var(--color-card); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
+.hit .h { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.hit .t { font-weight: 600; }
+.hit .s { color: var(--color-muted-foreground); font-size: 11px; }
+.hit .x { margin-top: 4px; white-space: pre-wrap; word-break: break-word; }
+.hit .tg { margin-left: 4px; }
+.hit .act { margin-top: 6px; display: flex; gap: 6px; }
+.warn { color: var(--color-destructive); }
+code { background: var(--color-muted); padding: 1px 5px; border-radius: 4px; font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+.foot { padding: 6px 12px; border-top: 1px solid var(--color-border); }
+.src { display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--color-border); border-radius: 8px; padding: 6px 10px; margin-bottom: 6px; gap: 8px; }
+.src span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

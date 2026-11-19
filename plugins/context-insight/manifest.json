@@ -1,0 +1,30 @@
+{
+  "id": "context-insight",
+  "name": "Context Insight",
+  "version": "0.1.0",
+  "description": "上下文洞察：读 M-Harness 的 trace，看每次运行的 token 走势、上下文构成、压缩事件和工具输出占用；也给 AI 提供上下文统计工具。",
+  "publisher": "M-Market",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/1316584746/M-Market",
+  "icon": "assets/icon.svg",
+  "permissions": ["fs.read"],
+  "entrypoints": {
+    "backend": { "executable": "bin/backend.cjs" },
+    "ui": { "root": "ui", "entry": "ui/index.html" }
+  },
+  "contributions": [
+    { "type": "workbench", "icon": "assets/icon.svg", "label": "上下文洞察" },
+    {
+      "type": "mcp",
+      "tools": {
+        "context_runs": { "description": "列出最近的运行记录" },
+        "context_stats": { "description": "分析一次运行的上下文构成与 token 走势" }
+      }
+    }
+  ],
+  "localizations": {
+    "zh-CN": { "name": "上下文洞察", "description": "读 M-Harness 的 trace，看每次运行的 token 走势、上下文构成、压缩事件和工具输出占用；也给 AI 提供上下文统计工具。" },
+    "en": { "name": "Context Insight", "description": "Reads M-Harness traces: per-run token trend, context composition, compaction events and tool output weight. Also exposes context stats tools to the AI." }
+  },
+  "tags": ["context", "trace", "token", "insight"]
+}

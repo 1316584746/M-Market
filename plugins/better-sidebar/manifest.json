@@ -1,0 +1,21 @@
+{
+  "id": "better-sidebar",
+  "name": "Better Sidebar",
+  "version": "0.1.0",
+  "description": "侧边工作台（精简版）：文件树、文本查看 / 编辑、文件名和内容搜索、Git 状态 / diff / 暂存。",
+  "publisher": "M-Market",
+  "license": "MIT",
+  "homepage": "https://github.com/1316584746/M-Market",
+  "icon": "assets/icon.svg",
+  "permissions": ["fs.read", "fs.write", "process.spawn:git"],
+  "entrypoints": {
+    "backend": { "executable": "bin/backend.cjs" },
+    "ui": { "root": "ui", "entry": "ui/index.html" }
+  },
+  "contributions": [{ "type": "workbench", "icon": "assets/icon.svg", "label": "侧边工作台" }],
+  "localizations": {
+    "zh-CN": { "name": "侧边工作台", "description": "文件树、文本查看 / 编辑、文件名和内容搜索、Git 状态 / diff / 暂存。精简版：没有终端、侧边对话和子代理页。" },
+    "en": { "name": "Better Sidebar", "description": "File tree, text viewer/editor, name & content search, Git status/diff/stage. Lite edition: no terminal, side chat or sub-agent pages." }
+  },
+  "tags": ["files", "git", "editor", "workbench"]
+}

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>billion-context</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<header class="top">
+  <div class="title">billion-context 上下文压缩代理</div>
+  <button class="dbx-btn" id="refresh">刷新</button>
+</header>
+<main>
+  <section class="card">
+    <div class="status" id="status">检查中…</div>
+    <div class="row">
+      <button class="dbx-btn dbx-btn--primary" id="install" hidden>安装 billion-context</button>
+      <button class="dbx-btn dbx-btn--primary" id="start" hidden>启动代理</button>
+      <button class="dbx-btn dbx-btn--danger" id="stop" hidden>停止代理</button>
+      <span class="dbx-hint" id="port-box">端口 <input class="dbx-input port" id="port" /> <button class="dbx-btn" id="setport">保存</button></span>
+    </div>
+    <div class="warn" id="err"></div>
+    <p class="dbx-hint">它是一个本机代理：夹在 Agent 和模型 API 之间，把已经用过的对话压缩成摘要，让长会话不超出上下文窗口。安装用 <code>npm install -g billion-context</code>，需要本机有 Node.js / npm。</p>
+  </section>
+
+  <section>
+    <h3>让 M-Harness 的模型走代理</h3>
+    <p class="dbx-hint">到「设置 → 模型」，把下面某个提供方的 Base URL 改成「走代理的地址」即可（想恢复就改回原地址）。只有直接调用模型 API 的提供方（OpenAI 兼容 / Anthropic）能走代理；Codex、Cursor、Claude Code 这类外部 Agent 走它们自己的通道，代理管不到。</p>
+    <div id="providers"><span class="dbx-hint">读取配置中…</span></div>
+    <p class="dbx-hint warn-soft">注意：M-Harness 自己也会按 token 预算裁剪上下文，而且它的 token 数是粗估。如果两边叠加，建议把 <code>limits.contextTokens</code> 调大，让压缩先于裁剪发生。</p>
+  </section>
+
+  <section>
+    <h3>运行日志</h3>
+    <pre class="log" id="log">（还没有日志）</pre>
+  </section>
+</main>
+<footer class="foot dbx-hint">
+  本页使用 <b>billion-context</b>（与 <b>acp-kernel</b>）实现上下文压缩 ·
+  <a class="dbx-link">github.com/ranxianglei/billion-context</a> ·
+  <a class="dbx-link">github.com/ranxianglei/acp-kernel</a>（MIT，含产品出处标注条款）
+</footer>
+<script src="app.js"></script>
+</body>
+</html>

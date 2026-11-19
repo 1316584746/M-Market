@@ -1,0 +1,182 @@
+{
+  "schemaVersion": 1,
+  "name": "M-Market",
+  "plugins": [
+    {
+      "id": "better-sidebar",
+      "name": "Better Sidebar",
+      "publisher": "M-Market",
+      "description": "侧边工作台（精简版）：文件树、文本查看 / 编辑、文件名和内容搜索、Git 状态 / diff / 暂存。",
+      "license": "MIT",
+      "homepage": "https://github.com/1316584746/M-Market",
+      "source": "https://github.com/1316584746/M-Market",
+      "tags": [
+        "files",
+        "git",
+        "editor",
+        "workbench"
+      ],
+      "permissions": [
+        "fs.read",
+        "fs.write",
+        "process.spawn:git"
+      ],
+      "latestVersion": "0.1.0",
+      "versions": [
+        {
+          "version": "0.1.0",
+          "releasedAt": "2026-11-19",
+          "artifacts": [
+            {
+              "target": "universal",
+              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/better-sidebar-0.1.0.dbxp",
+              "sha256": "eecd2c1c4f28562b24ed7c11c9517491e2f36b4287bbc146ce6f50540628f704",
+              "size": 17012
+            }
+          ]
+        }
+      ],
+      "localizations": {
+        "zh-CN": {
+          "name": "侧边工作台",
+          "description": "文件树、文本查看 / 编辑、文件名和内容搜索、Git 状态 / diff / 暂存。精简版：没有终端、侧边对话和子代理页。"
+        },
+        "en": {
+          "name": "Better Sidebar",
+          "description": "File tree, text viewer/editor, name & content search, Git status/diff/stage. Lite edition: no terminal, side chat or sub-agent pages."
+        }
+      }
+    },
+    {
+      "id": "billion-context",
+      "name": "billion-context",
+      "publisher": "M-Market",
+      "description": "billion-context 上下文压缩代理的管理器：一键安装 / 启动 / 停止，并给出 M-Harness 各模型提供方走代理的地址。",
+      "license": "MIT",
+      "homepage": "https://github.com/ranxianglei/billion-context",
+      "source": "https://github.com/1316584746/M-Market",
+      "tags": [
+        "context",
+        "compression",
+        "proxy"
+      ],
+      "permissions": [
+        "fs.read",
+        "process.spawn",
+        "net.listen:localhost"
+      ],
+      "latestVersion": "0.1.0",
+      "versions": [
+        {
+          "version": "0.1.0",
+          "releasedAt": "2026-11-19",
+          "artifacts": [
+            {
+              "target": "universal",
+              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/billion-context-0.1.0.dbxp",
+              "sha256": "4cb8f2974ad6ffb0a7c8fd31a0b744b6e25d2c48fe93fd36bc18753a53776b43",
+              "size": 12240
+            }
+          ]
+        }
+      ],
+      "localizations": {
+        "zh-CN": {
+          "name": "billion-context 上下文压缩",
+          "description": "billion-context 上下文压缩代理的管理器：一键安装 / 启动 / 停止，并给出 M-Harness 各模型提供方走代理的地址。使用 billion-context 与 acp-kernel（MIT，含出处标注条款）。"
+        },
+        "en": {
+          "name": "billion-context",
+          "description": "Manager for the billion-context compression proxy: install / start / stop, and proxy URLs for each M-Harness model provider. Uses billion-context and acp-kernel (MIT with attribution term)."
+        }
+      }
+    },
+    {
+      "id": "context-insight",
+      "name": "Context Insight",
+      "publisher": "M-Market",
+      "description": "上下文洞察：读 M-Harness 的 trace，看每次运行的 token 走势、上下文构成、压缩事件和工具输出占用；也给 AI 提供上下文统计工具。",
+      "license": "Apache-2.0",
+      "homepage": "https://github.com/1316584746/M-Market",
+      "source": "https://github.com/1316584746/M-Market",
+      "tags": [
+        "context",
+        "trace",
+        "token",
+        "insight"
+      ],
+      "permissions": [
+        "fs.read"
+      ],
+      "latestVersion": "0.1.0",
+      "versions": [
+        {
+          "version": "0.1.0",
+          "releasedAt": "2026-11-19",
+          "artifacts": [
+            {
+              "target": "universal",
+              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/context-insight-0.1.0.dbxp",
+              "sha256": "457b1e4354e598143d0b901410237fa31411267b8bf3e39fd568bf50eaef2a04",
+              "size": 15062
+            }
+          ]
+        }
+      ],
+      "localizations": {
+        "zh-CN": {
+          "name": "上下文洞察",
+          "description": "读 M-Harness 的 trace，看每次运行的 token 走势、上下文构成、压缩事件和工具输出占用；也给 AI 提供上下文统计工具。"
+        },
+        "en": {
+          "name": "Context Insight",
+          "description": "Reads M-Harness traces: per-run token trend, context composition, compaction events and tool output weight. Also exposes context stats tools to the AI."
+        }
+      }
+    },
+    {
+      "id": "memsearch",
+      "name": "MemSearch",
+      "publisher": "M-Market",
+      "description": "给 M-Harness 的长期记忆：Markdown 存储、离线关键词检索、可挂载自己的笔记目录；AI 能通过 memory_search / memory_add 使用。",
+      "license": "MIT",
+      "homepage": "https://github.com/1316584746/M-Market",
+      "source": "https://github.com/1316584746/M-Market",
+      "tags": [
+        "memory",
+        "search",
+        "markdown"
+      ],
+      "permissions": [
+        "host.storage",
+        "fs.read",
+        "fs.write"
+      ],
+      "latestVersion": "0.1.0",
+      "versions": [
+        {
+          "version": "0.1.0",
+          "releasedAt": "2026-11-19",
+          "artifacts": [
+            {
+              "target": "universal",
+              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/memsearch-0.1.0.dbxp",
+              "sha256": "c46115aa24c26885be894daaa413435ba7860472018c15ed447824cc72403094",
+              "size": 14968
+            }
+          ]
+        }
+      ],
+      "localizations": {
+        "zh-CN": {
+          "name": "MemSearch 长期记忆",
+          "description": "给 M-Harness 的长期记忆：Markdown 存储、离线关键词检索、可挂载自己的笔记目录；AI 能通过 memory_search / memory_add 使用。"
+        },
+        "en": {
+          "name": "MemSearch",
+          "description": "Long-term memory for M-Harness: Markdown storage, offline keyword search, mountable note folders, and memory_search / memory_add tools for the AI."
+        }
+      }
+    }
+  ]
+}

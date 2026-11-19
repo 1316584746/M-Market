@@ -1,0 +1,11 @@
+# 安装包按字节校验 sha256，绝不能被换行转换改动
+*.dbxp binary
+# 目录文件里记着安装包的 sha256，换行也固定成 LF
+catalog/*.json text eol=lf
+*.cjs text eol=lf
+*.mjs text eol=lf
+*.json text eol=lf
+*.js text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.svg text eol=lf

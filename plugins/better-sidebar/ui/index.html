@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Better Sidebar</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<header class="top">
+  <button class="dbx-btn dbx-btn--ghost" id="toggle" title="收起 / 展开侧栏">☰</button>
+  <div class="root" id="root" title="工作区目录">（未选择）</div>
+  <button class="dbx-btn" id="chroot">切换目录</button>
+  <button class="dbx-btn" id="refresh" title="刷新文件树和 Git 状态">刷新</button>
+</header>
+<div class="editdir" id="editroot" hidden>
+  <input class="dbx-input" id="rootin" placeholder="工作区目录的完整路径" list="cands" />
+  <datalist id="cands"></datalist>
+  <button class="dbx-btn dbx-btn--primary" id="rootok">打开</button>
+  <button class="dbx-btn" id="rootcancel">取消</button>
+  <span class="warn" id="rooterr"></span>
+</div>
+<div class="body" id="body">
+  <aside class="side" id="side">
+    <nav class="tabs" id="tabs">
+      <button data-t="files" class="on">文件</button>
+      <button data-t="search">搜索</button>
+      <button data-t="git">Git <span class="dbx-badge" id="gitcount" hidden></span></button>
+    </nav>
+    <div class="pane" id="p-files"></div>
+    <div class="pane" id="p-search" hidden>
+      <div class="sbar">
+        <input class="dbx-input" id="sq" placeholder="搜索…" />
+        <select class="dbx-select" id="smode"><option value="name">文件名</option><option value="text">内容</option></select>
+      </div>
+      <div id="sres"></div>
+    </div>
+    <div class="pane" id="p-git" hidden></div>
+  </aside>
+  <section class="main">
+    <div class="openbar" id="openbar"></div>
+    <div class="msgbar" id="msgbar" hidden></div>
+    <div class="editor" id="editor">
+      <div class="empty dbx-hint">从左侧打开一个文件，或在 Git 里点一个改动看 diff。</div>
+    </div>
+  </section>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
