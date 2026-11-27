@@ -255,17 +255,17 @@
         "net.connect:https",
         "net.connect:http"
       ],
-      "latestVersion": "0.1.1",
+      "latestVersion": "0.1.2",
       "versions": [
         {
-          "version": "0.1.1",
+          "version": "0.1.2",
           "releasedAt": "2026-11-27",
           "artifacts": [
             {
               "target": "universal",
-              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/grafana-0.1.1.dbxp",
-              "sha256": "3abba923bfaef75e7aae3979da956c91380e719f3f711cfc4ed4964bf377940f",
-              "size": 16566
+              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/grafana-0.1.2.dbxp",
+              "sha256": "9057f420d588e078f39b8e48b0411a03073ed6499551463ca72a5745495c1cd3",
+              "size": 17581
             }
           ]
         }

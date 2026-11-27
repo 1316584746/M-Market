@@ -29,6 +29,11 @@ before(async () => {
       res.end();
       return;
     }
+    if (mode === "gateway") {
+      res.writeHead(403, { "content-type": "text/html", server: "nginx/1.20.1" });
+      res.end("<html><head><title>403 Forbidden</title></head><body>nginx</body></html>");
+      return;
+    }
     if (p === "/api/health") return send(200, { database: "ok", version: "11.2.0" });
     const okAuth = [`Bearer ${TOKEN}`, `Basic ${Buffer.from(`${USER}:${PASS}`).toString("base64")}`];
     if (!okAuth.includes(req.headers.authorization || "")) return send(401, { message: "Unauthorized " + (req.headers.authorization || "") });
@@ -190,6 +195,24 @@ describe("grafana", { concurrency: 1 }, () => {
       const s = await p.call("gf/connect", { url: pasted, token: TOKEN });
       assert.equal(s.url, want, pasted);
       assert.equal(s.org, "Main Org", pasted);
+    }
+  });
+
+  it("前面的网关返回 HTML（如 nginx 403）：报错里带状态码、页面标题和原因，不再只说「不是 JSON」", async () => {
+    const p = await start();
+    await setMode("gateway");
+    try {
+      await assert.rejects(p.call("gf/connect", { url: base, username: USER, password: PASS }), e => {
+        assert.match(e.message, /不是 JSON/);
+        assert.match(e.message, /HTTP 403/);
+        assert.match(e.message, /403 Forbidden/);
+        assert.match(e.message, /nginx/);
+        assert.match(e.message, /内网或 VPN/);
+        assert.ok(!e.message.includes(PASS));
+        return true;
+      });
+    } finally {
+      await setMode("ok");
     }
   });
 

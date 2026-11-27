@@ -99,6 +99,20 @@ function httpError(status, data, pathname, tok, kind) {
   return new GfError(status, "Grafana 返回 " + status + (msg ? "：" + msg : ""));
 }
 
+/** 返回的不是 JSON 时说清楚是什么：状态码、类型、网页标题，以及最常见的原因 */
+function nonJson(res, text) {
+  const ct = (res.headers.get("content-type") || "").split(";")[0].trim();
+  const title = ((/<title[^>]*>([^<]{1,80})/i.exec(text) || [])[1] || "").trim();
+  const server = res.headers.get("server") || "";
+  let why;
+  if (res.status === 403) why = "请求被网关 / 防火墙拒绝了。常见原因：这个 Grafana 只允许内网或 VPN 访问，或网关限制了来源 IP。请确认当前网络能在浏览器里打开它";
+  else if (res.status === 401) why = "网关要求先登录";
+  else if (res.status >= 500) why = "服务端出错了，稍后再试";
+  else if (res.ok) why = "返回的是网页，像是登录页，或者地址不是 Grafana 的根（挂在子路径时要带上子路径）";
+  else why = "地址可能不是 Grafana";
+  return "Grafana 返回的不是 JSON：HTTP " + res.status + (ct ? "，" + ct : "") + (title ? "，页面标题「" + title + "」" : "") + (server ? "，服务器 " + server : "") + "。" + why;
+}
+
 async function readJson(res) {
   const buf = Buffer.from(await res.arrayBuffer());
   if (buf.length > MAX_BODY) throw new Error("Grafana 返回的内容太大");
@@ -107,7 +121,7 @@ async function readJson(res) {
   try {
     return JSON.parse(text);
   } catch {
-    throw new Error("Grafana 返回的不是 JSON");
+    throw new GfError(res.status, nonJson(res, text));
   }
 }
 

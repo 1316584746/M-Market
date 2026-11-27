@@ -1,7 +1,7 @@
 {
   "id": "grafana",
   "name": "Grafana",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "只读连接你自己的 Grafana：组织与健康状态、正在触发的告警、仪表盘搜索和面板列表。可用服务账号令牌或账号密码登录，凭据只留在本机。",
   "publisher": "M-Market",
   "license": "MIT",
