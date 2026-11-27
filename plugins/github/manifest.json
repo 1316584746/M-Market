@@ -1,7 +1,7 @@
 {
   "id": "github",
   "name": "GitHub",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "GitHub console for M-Harness: repositories, files (read/edit/delete), branches, issues, pull requests (review/merge), Actions and releases, with AI tools for both reading and writing.",
   "publisher": "M-Market",
   "license": "MIT",

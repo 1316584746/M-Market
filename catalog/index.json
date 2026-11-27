@@ -3,10 +3,59 @@
   "name": "M-Market",
   "plugins": [
     {
+      "id": "agent-teams",
+      "name": "AgentTeams",
+      "publisher": "M-Market",
+      "description": "多 Agent 团队协作：AI 当队长，一句话组好带依赖的任务和持久成员，批准后成员自动领任务、互发消息，页面里实时看进度、任务依赖图和成员动态；任务可加质量门（合同、完成证据、评审不过自动修复 + 复审）。产品模型移植自 NanmiCoder/dsh-agent-teams。",
+      "license": "MIT",
+      "homepage": "https://github.com/1316584746/M-Market",
+      "icon": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/plugins/agent-teams/assets/icon.svg",
+      "source": "https://github.com/1316584746/M-Market",
+      "tags": [
+        "agent",
+        "team",
+        "multi-agent",
+        "tasks",
+        "subagent"
+      ],
+      "permissions": [
+        "fs.read",
+        "fs.write",
+        "process.exec",
+        "net.connect:https",
+        "net.connect:http"
+      ],
+      "latestVersion": "0.1.0",
+      "versions": [
+        {
+          "version": "0.1.0",
+          "releasedAt": "2026-11-27",
+          "artifacts": [
+            {
+              "target": "universal",
+              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/agent-teams-0.1.0.dbxp",
+              "sha256": "e12b3f9a8cfcb8a57ac627aac37bd79ef0234a3745bc0d6e021522a60a667273",
+              "size": 62100
+            }
+          ]
+        }
+      ],
+      "localizations": {
+        "zh-CN": {
+          "name": "AgentTeams",
+          "description": "多 Agent 团队协作：AI 当队长，一句话组好带依赖的任务和持久成员，批准后成员自动领任务、互发消息，页面里实时看进度、任务依赖图和成员动态；任务可加质量门（合同、完成证据、评审不过自动修复 + 复审）。产品模型移植自 NanmiCoder/dsh-agent-teams。"
+        },
+        "en": {
+          "name": "AgentTeams",
+          "description": "Multi-agent teams: the AI acts as captain, plans dependency-aware tasks with durable members, and after approval members claim tasks and message each other while the page shows progress, the task graph and member activity; tasks can carry quality gates (contract, evidence, automatic repair + re-review). The product model is ported from NanmiCoder/dsh-agent-teams."
+        }
+      }
+    },
+    {
       "id": "better-sidebar",
       "name": "DSH-better-sidebar",
       "publisher": "M-Market",
-      "description": "侧边工作台：文件树、文本查看 / 编辑、文件名和内容搜索、Git 状态 / diff / 暂存。名称与 dsh market 的 DSH-better-sidebar 一致；终端、侧边对话、任务页因宿主不支持而没有。",
+      "description": "侧边工作台：文件树、文本查看 / 编辑（语法高亮）、Markdown 预览、文件名和内容搜索、Git 状态 / diff / 暂存、Git Graph（分支图）、简易命令面板。名称沿用 dsh market 里的 DSH-better-sidebar；侧边对话、任务页、真正的终端（PTY）在这个宿主里做不了。",
       "license": "MIT",
       "homepage": "https://github.com/1316584746/M-Market",
       "icon": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/plugins/better-sidebar/assets/icon.svg",
@@ -21,19 +70,20 @@
       "permissions": [
         "fs.read",
         "fs.write",
-        "process.spawn:git"
+        "process.spawn:git",
+        "process.exec"
       ],
-      "latestVersion": "0.1.4",
+      "latestVersion": "0.2.0",
       "versions": [
         {
-          "version": "0.1.4",
+          "version": "0.2.0",
           "releasedAt": "2026-11-27",
           "artifacts": [
             {
               "target": "universal",
-              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/better-sidebar-0.1.4.dbxp",
-              "sha256": "10aaf06ce26111967d8cc72fb9162356474089920624688b610bce9e9ac72367",
-              "size": 18128
+              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/better-sidebar-0.2.0.dbxp",
+              "sha256": "0b557d525cac099572e2e9563e5a4299ae460cfddb679bb38025b4e00c8f7f06",
+              "size": 29463
             }
           ]
         }
@@ -41,11 +91,11 @@
       "localizations": {
         "zh-CN": {
           "name": "DSH-better-sidebar",
-          "description": "侧边工作台：文件树、文本查看 / 编辑、文件名和内容搜索、Git 状态 / diff / 暂存。名称与 dsh market 的 DSH-better-sidebar 一致；终端、侧边对话、任务页因宿主不支持而没有。"
+          "description": "侧边工作台：文件树、文本查看 / 编辑（语法高亮）、Markdown 预览、文件名和内容搜索、Git 状态 / diff / 暂存、Git Graph（分支图）、简易命令面板。名称沿用 dsh market 里的 DSH-better-sidebar；侧边对话、任务页、真正的终端（PTY）在这个宿主里做不了。"
         },
         "en": {
           "name": "DSH-better-sidebar",
-          "description": "Side workbench: file tree, text viewer/editor, name & content search, Git status/diff/stage. Named after DSH-better-sidebar in dsh market; the terminal, side chat and task pages are missing because the host cannot support them."
+          "description": "Side workbench: file tree, text viewer/editor with syntax highlighting, Markdown preview, name & content search, Git status/diff/stage, Git Graph, and a simple command panel (no PTY). Named after DSH-better-sidebar in dsh market; side chat, task pages and a real terminal are not possible in this host."
         }
       }
     },
@@ -68,17 +118,17 @@
         "process.spawn",
         "net.listen:localhost"
       ],
-      "latestVersion": "0.1.0",
+      "latestVersion": "0.1.1",
       "versions": [
         {
-          "version": "0.1.0",
-          "releasedAt": "2026-11-19",
+          "version": "0.1.1",
+          "releasedAt": "2026-11-27",
           "artifacts": [
             {
               "target": "universal",
-              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/billion-context-0.1.0.dbxp",
-              "sha256": "4cb8f2974ad6ffb0a7c8fd31a0b744b6e25d2c48fe93fd36bc18753a53776b43",
-              "size": 12240
+              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/billion-context-0.1.1.dbxp",
+              "sha256": "d83f731ccdbfdb886cdecb929b545e268b74872c188d22b690199ab21b048c14",
+              "size": 12388
             }
           ]
         }
@@ -114,17 +164,17 @@
         "fs.read",
         "net.connect:https"
       ],
-      "latestVersion": "0.3.0",
+      "latestVersion": "0.3.1",
       "versions": [
         {
-          "version": "0.3.0",
+          "version": "0.3.1",
           "releasedAt": "2026-11-27",
           "artifacts": [
             {
               "target": "universal",
-              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/context-insight-0.3.0.dbxp",
-              "sha256": "5509aa0eb503eb7c914a52065e91a0ad8080bc4d1fa499860bd2bd1bda38a3f2",
-              "size": 48819
+              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/context-insight-0.3.1.dbxp",
+              "sha256": "d8b3bd3e793de8e4f2e50dde7459d3ddd49dfd4f91ba0edc70a2e92e35d86495",
+              "size": 49055
             }
           ]
         }
@@ -160,17 +210,17 @@
         "net.connect:https",
         "host.network:https://avatars.githubusercontent.com"
       ],
-      "latestVersion": "0.2.2",
+      "latestVersion": "0.2.3",
       "versions": [
         {
-          "version": "0.2.2",
-          "releasedAt": "2026-11-19",
+          "version": "0.2.3",
+          "releasedAt": "2026-11-27",
           "artifacts": [
             {
               "target": "universal",
-              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/github-0.2.2.dbxp",
-              "sha256": "1d14b12ff9df4d794772f8f9527e1788bf0f46c631a408704b5367c1c82cbce9",
-              "size": 43930
+              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/github-0.2.3.dbxp",
+              "sha256": "29dab9d90ba5ce186b02eb8e67ce05fe3695e0eeda968faa3a32fec088f153ee",
+              "size": 44230
             }
           ]
         }
@@ -257,17 +307,17 @@
         "host.network:https://user-images.githubusercontent.com",
         "host.network:https://private-user-images.githubusercontent.com"
       ],
-      "latestVersion": "0.1.1",
+      "latestVersion": "0.1.2",
       "versions": [
         {
-          "version": "0.1.1",
-          "releasedAt": "2026-11-19",
+          "version": "0.1.2",
+          "releasedAt": "2026-11-27",
           "artifacts": [
             {
               "target": "universal",
-              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/market-0.1.1.dbxp",
-              "sha256": "6eadeedbea2f93414ffe4448ce838627ea931329ea16af5515b56801c01c07b6",
-              "size": 37452
+              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/market-0.1.2.dbxp",
+              "sha256": "426012c2ffdf43472394d33270645e2323facf8d5d486282c3252af7264b09cd",
+              "size": 37619
             }
           ]
         }
@@ -302,17 +352,17 @@
         "fs.read",
         "fs.write"
       ],
-      "latestVersion": "0.1.0",
+      "latestVersion": "0.1.1",
       "versions": [
         {
-          "version": "0.1.0",
-          "releasedAt": "2026-11-19",
+          "version": "0.1.1",
+          "releasedAt": "2026-11-27",
           "artifacts": [
             {
               "target": "universal",
-              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/memsearch-0.1.0.dbxp",
-              "sha256": "c46115aa24c26885be894daaa413435ba7860472018c15ed447824cc72403094",
-              "size": 14968
+              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/memsearch-0.1.1.dbxp",
+              "sha256": "7aad4bd1ac4ccb61ad6a9cbd9c0a327a47124f22e6c9c79d5560da67a2e2853d",
+              "size": 14992
             }
           ]
         }
@@ -350,17 +400,17 @@
         "net.connect:https",
         "net.connect:http"
       ],
-      "latestVersion": "0.1.0",
+      "latestVersion": "0.1.1",
       "versions": [
         {
-          "version": "0.1.0",
+          "version": "0.1.1",
           "releasedAt": "2026-11-27",
           "artifacts": [
             {
               "target": "universal",
-              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/modsearch-0.1.0.dbxp",
-              "sha256": "43feb1a6fd28feceddb9121dc700154c4f5e312edd0b6b84915366b0aafb08de",
-              "size": 44941
+              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/modsearch-0.1.1.dbxp",
+              "sha256": "ed0f7be3b4349b79604ea161792c3d46667b7aad1480fa6d215eb5ce8faa7470",
+              "size": 45501
             }
           ]
         }

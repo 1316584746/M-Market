@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import http from "node:http";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { after, before, describe, it } from "node:test";
 import { ROOT, launch, tmpdir } from "./helpers.mjs";
@@ -519,5 +520,72 @@ describe("market：新界面用到的数据", () => {
     assert.doesNotMatch(r.text, /ghp_SECRET/);
     assert.doesNotMatch(r.text, new RegExp(home.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&")));
     assert.equal((await p.call("market/settings")).version.length > 0, true);
+  });
+});
+
+describe("market：安装包的完整性检查（dbxp.cjs）", () => {
+  const require = createRequire(import.meta.url);
+  const { installBuffer } = require(path.join(ROOT, "plugins/market/bin/dbxp.cjs"));
+  const sha = b => crypto.createHash("sha256").update(b).digest("hex");
+
+  /** 最小的 zip（只存不压缩，不写 CRC：安装器本来就不看它） */
+  function zip(files) {
+    const locals = [];
+    const central = [];
+    let off = 0;
+    for (const [name, data] of Object.entries(files)) {
+      const n = Buffer.from(name);
+      const d = Buffer.from(data);
+      const lh = Buffer.alloc(30);
+      lh.writeUInt32LE(0x04034b50, 0);
+      lh.writeUInt32LE(d.length, 18);
+      lh.writeUInt32LE(d.length, 22);
+      lh.writeUInt16LE(n.length, 26);
+      locals.push(lh, n, d);
+      const ch = Buffer.alloc(46);
+      ch.writeUInt32LE(0x02014b50, 0);
+      ch.writeUInt32LE(d.length, 20);
+      ch.writeUInt32LE(d.length, 24);
+      ch.writeUInt16LE(n.length, 28);
+      ch.writeUInt32LE(off, 42);
+      central.push(ch, n);
+      off += 30 + n.length + d.length;
+    }
+    const cd = Buffer.concat(central);
+    const end = Buffer.alloc(22);
+    end.writeUInt32LE(0x06054b50, 0);
+    end.writeUInt16LE(Object.keys(files).length, 10);
+    end.writeUInt32LE(cd.length, 12);
+    end.writeUInt32LE(off, 16);
+    return Buffer.concat([...locals, cd, end]);
+  }
+  const pkg = (extra = {}, listed = ["a.js"]) => {
+    const files = { "manifest.json": JSON.stringify({ id: "demo", version: "1.0.0" }), "a.js": "1", ...extra };
+    const sums = Object.fromEntries(["manifest.json", ...listed].map(n => [n, sha(Buffer.from(files[n]))]));
+    return zip({ ...files, "checksums.json": JSON.stringify({ files: sums }) });
+  };
+
+  it("正常的包能装", () => {
+    const root = tmpdir("dbxp");
+    assert.equal(installBuffer(pkg(), root).version, "1.0.0");
+    assert.ok(fs.existsSync(path.join(root, "demo", "versions", "1.0.0", "a.js")));
+  });
+
+  it("包里夹带了没列入校验清单的文件：整个包拒绝，什么都不落盘", () => {
+    const root = tmpdir("dbxp");
+    assert.throws(() => installBuffer(pkg({ "bin/evil.js": "x" }), root), /没列入校验清单.*bin\/evil\.js/);
+    assert.ok(!fs.existsSync(path.join(root, "demo", "versions", "1.0.0")));
+  });
+
+  it("文件内容被改过 / 路径里带 .. 、反斜杠、盘符冒号：拒绝", () => {
+    const root = tmpdir("dbxp");
+    const tampered = Buffer.from(pkg()); // 把 a.js 的内容从 1 改成 2
+    tampered[tampered.indexOf(Buffer.from("a.js")) + 4] = "2".charCodeAt(0); // 紧跟在文件名后面的就是内容
+    assert.throws(() => installBuffer(tampered, root), /校验失败/);
+    for (const name of ["../x.js", "sub\\..\\..\\x.js", "C:x.js"]) {
+      const files = { "manifest.json": JSON.stringify({ id: "demo", version: "1.0.0" }), [name]: "1" };
+      const sums = Object.fromEntries(Object.entries(files).map(([n, d]) => [n, sha(Buffer.from(d))]));
+      assert.throws(() => installBuffer(zip({ ...files, "checksums.json": JSON.stringify({ files: sums }) }), root), /不安全的路径/, name);
+    }
   });
 });

@@ -33,11 +33,12 @@ The first time a plugin with a backend process runs, M-Harness asks you to trust
 | **MemSearch** (`memsearch`) | Long-term memory as Markdown, offline keyword (BM25) search, mountable note folders | `memory_search` `memory_recent` `memory_add` |
 | **Context Insight** (`context-insight`) | Reads M-Harness traces: insights page (KPIs, token & cost chart, token / time breakdown, activity heatmap, skill / tool / command rankings, session cards), token trend, context composition, compaction events; optional DeepSeek balance in the header (sends your DeepSeek provider key to `api.deepseek.com` only; can be switched off) | `context_runs` `context_stats` `context_overview` |
 | **billion-context** (`billion-context`) | Manager for the [billion-context](https://github.com/ranxianglei/billion-context) compression proxy: install / start / stop, per-provider proxy URLs | — |
-| **DSH-better-sidebar** (`better-sidebar`) | File tree, view / edit, name and content search, Git status / diff / stage | — |
+| **DSH-better-sidebar** (`better-sidebar`) | File tree, view / edit (syntax highlighting, Markdown preview), name and content search, Git status / diff / stage, Git Graph with commit details, a command panel (one command at a time, no PTY) | — |
 | **Grafana** (`grafana`) | Read-only console for your own Grafana: org and health, firing alerts, dashboard search and panel lists | `grafana_status` `grafana_alerts` `grafana_dashboards` `grafana_dashboard` |
 | **modsearch** (`modsearch`) | Web search and page reading for the AI: Firecrawl / Keenable / You.com work with no signup, Tavily / Exa join once you add a key; automatic multi-engine failover, multi-key rotation, quota cooldown, private-network guard, paged reading of long pages | `web_search` `x_search` `read_page` `modsearch_doctor` |
+| **AgentTeams** (`agent-teams`) | Multi-agent teams: the AI is the captain and plans dependency-aware tasks with durable members; after approval members claim tasks and message each other, while the page shows progress, the task graph and live member activity, and asks you to confirm member file writes / commands; tasks can carry quality gates (contract, completion evidence, automatic repair + re-review when a review fails) | 14 `agent_teams_*` tools (`create` `approve` `edit_plan` `add_member` `remove_member` `create_task` `reassign_task` `claim_task` `update_task` `amend_task` `send_message` `status` `resume` `delete`) |
 
-All seven are **one package for all three platforms**: the backend is a Node script (`.cjs`) run by the Node bundled with M-Harness; nothing is compiled per OS.
+All eight are **one package for all three platforms**: the backend is a Node script (`.cjs`) run by the Node bundled with M-Harness; nothing is compiled per OS.
 
 ## What the market does
 
@@ -67,7 +68,7 @@ All seven are **one package for all three platforms**: the backend is a Node scr
 - Packages are verified against the catalog sha256 and the in-package `checksums.json`; extraction rejects `..` and absolute paths
 - Downloads must be https (loopback excepted) and come from the catalog's host or `raw.githubusercontent.com` / `github.com` / `objects.githubusercontent.com` / `cdn.jsdelivr.net` / `dl.dbxio.com`
 - Plugin UIs run in a sandboxed iframe; network access is limited to the origins declared as `host.network:` in the manifest
-- **Tokens and passwords are stored in plain text** in the plugin's data directory (the sandbox has no keychain): the market's WebDAV password / Gist token, the GitHub plugin's personal access token, the Grafana plugin's service-account token, and modsearch's engine API keys. Use minimal-scope fine-grained tokens. Backups never contain them.
+- **Tokens and passwords are stored in plain text** in the plugin's data directory (the sandbox has no keychain): the market's WebDAV password / Gist token, the GitHub plugin's personal access token, the Grafana plugin's service-account token, modsearch's engine API keys, and the custom model-route key you may enter in AgentTeams. Use minimal-scope fine-grained tokens. Backups never contain them.
 - The GitHub plugin's AI write tools change your repositories for real; do not enable them if you do not want the AI to act
 - Listed does not mean endorsed: plugins are third-party code
 

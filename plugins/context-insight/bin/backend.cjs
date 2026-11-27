@@ -65,8 +65,19 @@ function readLines(file) {
 
 // ───────── 列表（轻量：不解析 model_call 的大行） ─────────
 
+// 列表每次都会摘要几十个 trace，单个可达上百 MB：按 修改时间 + 大小 缓存摘要，没变的文件不再重读（trace 只会追加或新建）
+const sumCache = new Map();
 function summarize(file) {
   const st = fs.statSync(file);
+  const hit = sumCache.get(file);
+  if (hit && hit.mtime === st.mtimeMs && hit.size === st.size) return { ...hit.sum };
+  const sum = summarizeFresh(file, st);
+  sumCache.set(file, { mtime: st.mtimeMs, size: st.size, sum });
+  if (sumCache.size > 600) sumCache.delete(sumCache.keys().next().value);
+  return { ...sum };
+}
+
+function summarizeFresh(file, st) {
   const sum = { name: path.basename(file, ".jsonl"), mtime: st.mtimeMs, size: st.size, provider: "", input: "", reason: "", steps: 0, tokens: 0, trims: 0, tools: 0 };
   let lines;
   try {

@@ -1,8 +1,9 @@
 "use strict";
 /**
  * Better Sidebar（精简版）：给 M-Harness 的文件树、文本查看 / 编辑、搜索和 Git 状态 / diff。
- * 所有路径都限制在「工作区根目录」之内（含符号链接检查）；Git 只做只读查询加暂存 / 取消暂存。
- * 这里是针对 M-Harness 插件宿主重写的精简版，没有终端、侧边对话、子代理页。
+ * 文件路径都限制在「工作区根目录」之内（含符号链接检查）；Git 只做只读查询加暂存 / 取消暂存，外加 Git Graph。
+ * 另有一个没有 PTY 的简易命令执行（term/*）：一条命令一个子进程，不限制在工作区内，和你自己开终端一样。
+ * 这里是针对 M-Harness 插件宿主重写的版本，没有侧边对话、子代理页。
  */
 const fs = require("node:fs");
 const path = require("node:path");
@@ -322,10 +323,200 @@ async function gitStage(paths, on) {
   return gitStatus();
 }
 
+// ───────── Git Graph ─────────
+
+/** 所有分支的提交（按时间排，子在前、父在后），界面按 parents 算分叉和合并的连线 */
+async function gitGraph(limit) {
+  if (!(await isRepo())) return { isRepo: false, commits: [] };
+  const n = Math.max(10, Math.min(Number(limit) || 200, 1000));
+  let out = "";
+  try {
+    out = await git(["log", "--all", "--date-order", `-n${n}`, "--date=format:%Y-%m-%d %H:%M", "--pretty=format:%H%x1f%P%x1f%h%x1f%an%x1f%ad%x1f%s%x1f%D"]);
+  } catch {
+    return { isRepo: true, commits: [] }; // 还没有任何提交
+  }
+  const commits = out.split("\n").filter(Boolean).map(l => {
+    const [hash, parents, short, author, date, subject, refs] = l.split("\x1f");
+    return { hash, parents: parents ? parents.split(" ") : [], short, author, date, subject, refs: refs ? refs.split(", ").map(s => s.trim()).filter(Boolean) : [] };
+  });
+  return { isRepo: true, commits };
+}
+
+/** 一个提交的详情：说明 + 改了哪些文件 + 这次提交的 diff（太长截断）。合并提交对比的是第一个父提交，也就是「合进来了什么」 */
+async function gitShow(hash) {
+  if (!/^[0-9a-f]{4,40}$/i.test(String(hash || ""))) throw new Error("提交号不合法");
+  const head = await git(["show", "-s", "--date=format:%Y-%m-%d %H:%M", "--format=%H%x1f%an <%ae>%x1f%ad%x1f%B", hash]);
+  const [full, author, date, ...rest] = head.split("\x1f");
+  const files = (await git(["show", "-m", "--first-parent", "--name-status", "--format=", hash])).split("\n").filter(Boolean).map(l => {
+    const [status, ...p] = l.split("\t");
+    return { status: status[0], path: p[p.length - 1], from: p.length > 1 ? p[0] : undefined };
+  });
+  const diff = await git(["show", "-m", "--first-parent", "--no-color", "--format=", "--patch", hash]);
+  return { hash: full, author, date, message: rest.join("\x1f").trim(), files, diff: diff.length > LIM.diff ? diff.slice(0, LIM.diff) + "\n…（diff 太长，已截断）" : diff };
+}
+
+// ───────── 命令执行（没有 PTY 的简易终端） ─────────
+// 一条命令一个子进程，输出轮询取；运行中可以往它的 stdin 写一行，也可以停掉。
+// `cd 目录` 在这里只改后面命令的工作目录。拿不到真正的终端，所以 vim、top 这类全屏程序不能用。
+
+const { spawn, spawnSync } = require("node:child_process");
+/** Windows 控制台命令（dir、echo 等）按系统的 OEM 代码页输出，Node / git 等是 UTF-8：先严格按 UTF-8 解，解不了再按 OEM 解 */
+let oem = null;
+function oemDecoder() {
+  if (oem) return oem;
+  let label = "utf-8";
+  if (process.platform === "win32") {
+    try {
+      const r = spawnSync("cmd.exe", ["/d", "/c", "chcp"], { windowsHide: true, timeout: 3000 });
+      const cp = Number(/(\d+)\s*$/.exec(r.stdout.toString("latin1").trim())?.[1]);
+      label = { 936: "gbk", 950: "big5", 932: "shift_jis", 949: "euc-kr", 65001: "utf-8" }[cp] || "windows-1252";
+    } catch {
+      /* 取不到就按 UTF-8 */
+    }
+  }
+  try {
+    oem = new TextDecoder(label);
+  } catch {
+    oem = new TextDecoder("utf-8");
+  }
+  return oem;
+}
+const strictUtf8 = new TextDecoder("utf-8", { fatal: true });
+const decodeChunk = buf => {
+  try {
+    return strictUtf8.decode(buf);
+  } catch {
+    return oemDecoder().decode(buf);
+  }
+};
+
+/** 按行解码：整行到齐再解，避免多字节字符被切开；没有换行的提示符 200ms 后也会放出来 */
+function pipeDecoded(stream, add) {
+  let pend = Buffer.alloc(0);
+  let timer = null;
+  const flush = () => {
+    if (pend.length) add(decodeChunk(pend));
+    pend = Buffer.alloc(0);
+  };
+  stream.on("data", d => {
+    clearTimeout(timer);
+    pend = Buffer.concat([pend, d]);
+    const nl = pend.lastIndexOf(0x0a);
+    if (nl >= 0) {
+      add(decodeChunk(pend.subarray(0, nl + 1)));
+      pend = pend.subarray(nl + 1);
+    }
+    if (pend.length > 65536) flush();
+    else if (pend.length) timer = setTimeout(flush, 200);
+  });
+  stream.on("end", () => {
+    clearTimeout(timer);
+    flush();
+  });
+}
+
+const JOBS = new Map();
+let jobSeq = 0;
+let termCwd = "";
+const TERM = { buf: 512 * 1024, keep: 12, max: 4 };
+
+const killTree = job => {
+  if (!job.child || job.done) return;
+  try {
+    if (process.platform === "win32") spawn("taskkill", ["/pid", String(job.child.pid), "/T", "/F"], { windowsHide: true });
+    else job.child.kill("SIGTERM");
+  } catch {
+    /* 已经退出 */
+  }
+};
+
+function cwdNow() {
+  if (termCwd && fs.existsSync(termCwd)) return termCwd;
+  return root() || os.homedir();
+}
+
+function termStart(command) {
+  const cmd = String(command || "").trim();
+  if (!cmd) throw new Error("命令不能为空");
+  if (cmd.length > 4000) throw new Error("命令太长");
+  const cd = /^cd(?:\s+(?:\/d\s+)?(.*))?$/i.exec(cmd);
+  if (cd && !/[&|;<>]/.test(cmd)) {
+    const raw = (cd[1] || "").trim().replace(/^"(.*)"$/, "$1");
+    const next = raw ? path.resolve(cwdNow(), raw === "~" ? os.homedir() : raw) : root() || os.homedir();
+    if (!fs.existsSync(next) || !fs.statSync(next).isDirectory()) throw new Error(`目录不存在：${next}`);
+    termCwd = next;
+    return { id: 0, cwd: next, cd: true };
+  }
+  if ([...JOBS.values()].filter(j => !j.done).length >= TERM.max) throw new Error(`最多同时运行 ${TERM.max} 条命令，先停掉几条`);
+  const cwd = cwdNow();
+  const env = { ...process.env, TERM: "dumb", NO_COLOR: "1", FORCE_COLOR: "0", GIT_TERMINAL_PROMPT: "0" };
+  const win = process.platform === "win32";
+  const child = win
+    ? spawn("cmd.exe", ["/d", "/s", "/c", `"${cmd}"`], { cwd, env, windowsHide: true, windowsVerbatimArguments: true })
+    : spawn("/bin/sh", ["-c", cmd], { cwd, env, detached: false });
+  const job = { id: ++jobSeq, command: cmd, cwd, child, out: "", dropped: 0, done: false, code: null, signal: null, startedAt: Date.now() };
+  JOBS.set(job.id, job);
+  const add = s => {
+    job.out += s;
+    if (job.out.length > TERM.buf) {
+      const cut = job.out.length - TERM.buf;
+      job.out = job.out.slice(cut);
+      job.dropped += cut;
+    }
+  };
+  pipeDecoded(child.stdout, add);
+  pipeDecoded(child.stderr, add);
+  child.on("error", e => {
+    add(`\n启动失败：${e.message}\n`);
+    job.done = true;
+  });
+  child.on("close", (code, signal) => {
+    job.done = true;
+    job.code = code;
+    job.signal = signal;
+    job.endedAt = Date.now();
+  });
+  // 只留最近几条已结束的
+  const finished = [...JOBS.values()].filter(j => j.done);
+  for (const j of finished.slice(0, Math.max(0, finished.length - TERM.keep))) JOBS.delete(j.id);
+  return { id: job.id, cwd };
+}
+
+function termPoll(id, since) {
+  const job = JOBS.get(Number(id));
+  if (!job) throw new Error("没有这条命令（可能已经被清理）");
+  const from = Math.max(0, Number(since) || 0);
+  const total = job.dropped + job.out.length;
+  const text = job.out.slice(Math.max(0, from - job.dropped));
+  return { id: job.id, text, next: total, done: job.done, code: job.code, signal: job.signal, ms: (job.endedAt || Date.now()) - job.startedAt };
+}
+
+function termInput(id, line) {
+  const job = JOBS.get(Number(id));
+  if (!job || job.done) throw new Error("命令已经结束");
+  job.child.stdin.write(String(line ?? "") + (process.platform === "win32" ? "\r\n" : "\n"));
+  return { ok: true };
+}
+
+function termKill(id) {
+  const job = JOBS.get(Number(id));
+  if (job) killTree(job);
+  return { ok: !!job };
+}
+
+process.on("exit", () => JOBS.forEach(killTree));
+
 serve({
   id: ID,
   version: VERSION,
   methods: {
+    "git/graph": async p => gitGraph(p.limit),
+    "git/show": async p => gitShow(p.hash),
+    "term/start": async p => termStart(p.command),
+    "term/poll": async p => termPoll(p.id, p.since),
+    "term/input": async p => termInput(p.id, p.line),
+    "term/kill": async p => termKill(p.id),
+    "term/cwd": async () => ({ cwd: cwdNow() }),
     "ws/get": async () => wsInfo(),
     "ws/set": async p => setRoot(p.path),
     "fs/list": async p => list(p.dir),

@@ -1,7 +1,7 @@
 {
   "id": "modsearch",
   "name": "modsearch",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "给 AI 联网搜索和读网页：多个引擎自动故障转移，开箱即用、不用注册。支持多 key 轮换、配额冷却、内网防护。移植自 liustack/modsearch。",
   "publisher": "M-Market",
   "license": "MIT",

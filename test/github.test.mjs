@@ -49,6 +49,26 @@ describe("github：登录", () => {
   });
 });
 
+describe("github：令牌不会被带到别处", () => {
+  it("仓库名里的 . / .. 被拒绝，请求不会发出", async () => {
+    const p = await login();
+    for (const repo of ["../user", "me/..", "./x", "me/."]) {
+      await assert.rejects(p.call("gh/repo", { repo }), /所有者\/仓库名/, repo);
+      await assert.rejects(p.call("gh/putFile", { repo, path: "a.txt", message: "m", content: "x" }), /所有者\/仓库名/, repo);
+    }
+    assert.equal(log.length, 0, "没有任何请求打到 API 上");
+  });
+
+  it("换 API 地址必须同时填新地址的令牌：原令牌不会发给新地址", async () => {
+    const p = await login();
+    await assert.rejects(p.call("gh/login", { apiBase: "https://ghe.example.com/api/v3" }), /同时填写/);
+    assert.equal((await p.call("gh/status")).hasToken, true, "拒绝后原来的登录状态不变");
+    assert.equal(log.length, 0, "令牌没有发给任何地址");
+    // 地址没变（界面重新提交同一个地址）不算换地址
+    await p.call("gh/login", { apiBase: "" });
+  });
+});
+
 describe("github：只读", () => {
   it("仓库：列表、筛选、搜索、详情含分支", async () => {
     const p = await login();

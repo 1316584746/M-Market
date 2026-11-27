@@ -1,2 +1,5 @@
-本插件的名称沿用 dsh market 里的 [DSH-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar)（MIT，作者 omdsh-dev），产品形态参考它：侧边工作台里的文件树、查看 / 编辑和 Git 面板。
-本插件代码为针对 M-Harness 插件宿主重新编写的版本，不包含该项目的源码，也不是它的移植：它依赖 DSH 的网页服务、会话服务和终端，M-Harness 的插件宿主没有这些能力，所以没有终端、侧边对话、任务页（子代理拓扑和后台任务）、按会话独立的布局，也没有 `ctx.betterSidebar` 扩展服务。
+名称沿用 dsh market 里的 [DSH-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar)（MIT，作者 omdsh-dev），产品形态参考它：工作台里的文件树、查看 / 编辑、Git 面板、Git Graph、Markdown 预览、语法高亮和命令面板。
+代码是为 M-Harness 的插件宿主重新编写的版本，没有复制上游项目的源码，也没有移植它依赖 DSH 网页、会话和终端服务的部分：M-Harness 的插件宿主没有这些能力，所以没有侧边对话、任务页（子代理拓扑、后台任务）、按会话独立的布局和 `ctx.betterSidebar` 扩展服务。命令面板是「一次跑一条命令」的简化版，没有 PTY，跑不了需要交互的全屏程序。
+
+The name follows [DSH-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) from dsh market (MIT, omdsh-dev) and the product shape is modelled on it: file tree, view / edit, Git panel, Git Graph, Markdown preview, syntax highlighting and a command panel.
+The code is a fresh implementation for the M-Harness plugin host; no upstream source was copied. The parts that depend on DSH's web page, session and terminal services (side chat, task page, per-session layout, the `ctx.betterSidebar` extension service) are not ported because the M-Harness plugin host has no such capabilities. The command panel runs one command at a time and has no PTY, so interactive full-screen programs do not work.

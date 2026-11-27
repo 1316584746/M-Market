@@ -60,6 +60,93 @@ if (id === "context-insight") console.log(`假 trace：${seedTraces(home)}`);
 const plug = launch(id, { home, env });
 await plug.init();
 
+if (id === "agent-teams") {
+  // 假模型 + 一个跑到「等待确认」的团队 + 一个待批准的团队，方便看界面
+  const ws = fs.mkdtempSync(path.join(process.env.TEMP || "/tmp", "mm-dev-ws-"));
+  fs.writeFileSync(path.join(ws, "hello.txt"), "你好，团队");
+  const call = (name, args) => ({ id: "c1", type: "function", function: { name, arguments: JSON.stringify(args) } });
+  const llm = http.createServer((req, res) => {
+    let raw = "";
+    req.on("data", d => (raw += d));
+    req.on("end", () => {
+      const b = JSON.parse(raw);
+      const who = /成员 ([\p{L}\p{N}_.-]+)/u.exec(b.messages[0].content)?.[1];
+      const first = b.messages.find(m => m.role === "user")?.content || "";
+      const taskId = /任务 (t\d+)：/.exec(first)?.[1];
+      const step = b.messages.filter(m => m.role === "tool").length;
+      let msg;
+      const upd = a => ({ tool_calls: [call("agent_teams_update_task", { taskId, ...a })] });
+      if (first.includes("质量门：implementation") || first.includes("质量门：repair")) {
+        if (step === 0) msg = { tool_calls: [call("write_file", { path: "lib/parse.js", content: first.includes("repair") ? "// v2 带校验\n" : "// v1\n" })] };
+        else if (step === 1) msg = upd({ status: "completed", output: "已写入 lib/parse.js", changed_paths: ["lib/parse.js"], acceptance_results: [{ criterion: "能解析空输入", status: "passed", evidence: "手工读过文件" }, ...(first.includes("repair") ? [{ criterion: "修复 F1：空输入要报错", status: "passed" }] : [])], commands_run: [{ command: "node --test", status: "passed", exit_code: 0 }] });
+      } else if (first.includes("质量门：review")) {
+        if (step === 0) msg = upd({ status: "failed", output: "校验还是不够", verdict: "needs_revision", findings: [{ id: first.includes("第 2 轮") ? "F2" : "F1", severity: "high", file: "lib/parse.js", line: 1, problem: "没有处理空输入", required_fix: "空输入要报错" }] });
+      } else if (who === "bob" && step === 0) msg = { tool_calls: [call("write_file", { path: "summary.md", content: "# 总结\n模块分析结果……" })] };
+      else if (step === 0) msg = { tool_calls: [call("read_file", { path: "hello.txt" })] };
+      else if (step === 1 && who === "alice") msg = { tool_calls: [call("agent_teams_update_task", { taskId, status: "completed", output: "读完了：入口在 src/index.ts，共 3 个模块，依赖关系清晰。" })] };
+      else msg = { content: "完成" };
+      res.setHeader("content-type", "application/json");
+      res.end(JSON.stringify({ choices: [{ message: { role: "assistant", content: msg.content ?? null, ...(msg.tool_calls ? { tool_calls: msg.tool_calls } : {}) } }], usage: { prompt_tokens: 1800, completion_tokens: 240 } }));
+    });
+  });
+  await new Promise(r => llm.listen(0, "127.0.0.1", r));
+  cleanups.push(() => llm.close());
+  await plug.call("at/settings/set", { workspace: ws, route: { provider: "mock", model: "mock-1", baseURL: `http://127.0.0.1:${llm.address().port}`, apiKey: "sk-demo" } });
+  await plug.tool("agent_teams_create", {
+    name: "代码分析", description: "把 src 目录里的模块分析一遍并出评审意见",
+    members: [{ name: "alice", role: "researcher", toolPolicy: "readonly" }, { name: "bob", role: "engineer" }, { name: "carol", role: "reviewer", toolPolicy: "readonly" }],
+    tasks: [{ ref: "read", subject: "读代码", assignee: "alice", description: "读 hello.txt 并总结" }, { ref: "sum", subject: "写总结", assignee: "bob", dependencies: ["read"] }, { ref: "rev", subject: "评审", assignee: "carol", dependencies: ["sum"] }, { subject: "整理交付物", dependencies: ["rev"] }],
+    auto_approve: true,
+  });
+  await plug.tool("agent_teams_create", { name: "发布准备", description: "准备下一个版本的发布", members: [{ name: "dev" }, { name: "qa", role: "tester" }], tasks: [{ ref: "a", subject: "冻结版本" }, { subject: "回归测试", assignee: "qa", dependencies: ["a"] }] });
+  await plug.tool("agent_teams_create", {
+    name: "质量门演示", description: "实现 → 评审不过 → 自动修复 → 复审仍不过 → 升级给队长",
+    members: [{ name: "alice", role: "engineer" }, { name: "bob", role: "reviewer" }],
+    goal_items: ["解析器能处理空输入"], max_repair_attempts: 1,
+    tasks: [
+      { ref: "impl", subject: "实现解析器", kind: "implementation", assignee: "alice", objective: "写 lib/parse.js", in_scope: ["lib/"], out_of_scope: ["lib/vendor/"], acceptance: ["能解析空输入"], verify: ["node --test"], coverage_of: ["解析器能处理空输入"] },
+      { subject: "评审解析器", kind: "review", assignee: "bob", dependencies: ["impl"] },
+    ],
+    auto_approve: true,
+  });
+  await plug.call("at/allow-all", { id: "质量门演示", on: true });
+  await plug.call("at/send", { id: "代码分析", to: "captain", content: "总结里请带上风险点" });
+  console.log(`agent-teams 演示数据就绪，工作区：${ws}`);
+}
+
+if (id === "better-sidebar") {
+  // 一个带分支和合并的演示仓库，用来看 Git Graph / Markdown 预览 / 语法高亮 / 命令面板
+  const { execFileSync } = await import("node:child_process");
+  const ws = fs.mkdtempSync(path.join(process.env.TEMP || "/tmp", "mm-dev-repo-"));
+  const g = (...a) => execFileSync("git", ["-c", "user.name=Demo", "-c", "user.email=demo@example.com", ...a], { cwd: ws, stdio: "pipe" });
+  const commit = (msg, files = {}) => {
+    for (const [f, c] of Object.entries(files)) fs.writeFileSync(path.join(ws, f), c);
+    g("add", "-A");
+    g("commit", "-m", msg);
+  };
+  g("init", "-q", "-b", "main");
+  commit("初始化项目", { "README.md": "# 演示项目\n\n这是一个**演示**仓库，用来看 `Markdown` 预览。\n\n- 第一项\n- 第二项\n  - 嵌套项\n\n| 名称 | 说明 |\n| --- | --- |\n| a | 第一个 |\n| b | 第二个 |\n\n```js\nconsole.log(1)\n```\n\n[M-Market](https://github.com/1316584746/M-Market)\n", "app.js": "// 入口\nconst x = 42;\nfunction hello(name) {\n  return `你好，${name}`; // 打招呼\n}\nconsole.log(hello(\"world\"), x);\n", "data.json": '{\n  "name": "demo",\n  "count": 3,\n  "ok": true\n}\n' });
+  commit("加上登录", { "login.js": "export const login = () => true;\n" });
+  g("checkout", "-q", "-b", "feature/search");
+  commit("搜索：第一版", { "search.js": "export const search = q => q;\n" });
+  g("checkout", "-q", "main");
+  commit("修复登录的小问题", { "login.js": "export const login = () => false;\n" });
+  g("checkout", "-q", "-b", "feature/ui");
+  commit("界面：骨架", { "ui.css": "body { margin: 0; color: #333; }\n" });
+  g("checkout", "-q", "feature/search");
+  commit("搜索：支持高亮", { "search.js": "export const search = q => q.trim();\n" });
+  g("checkout", "-q", "main");
+  g("merge", "-q", "--no-ff", "-m", "合并 feature/search", "feature/search");
+  g("checkout", "-q", "feature/ui");
+  commit("界面：配色", { "ui.css": "body { margin: 0; color: #111; }\n" });
+  g("checkout", "-q", "main");
+  g("merge", "-q", "--no-ff", "-m", "合并 feature/ui", "feature/ui");
+  g("tag", "v0.1.0");
+  fs.writeFileSync(path.join(ws, "app.js"), fs.readFileSync(path.join(ws, "app.js"), "utf8") + "// 未提交的改动\n");
+  await plug.call("ws/set", { path: ws });
+  console.log(`better-sidebar 演示仓库：${ws}`);
+}
+
 if (id === "market") {
   // 本仓库的目录：把安装包地址改成本机，这样「安装」真的能走完
   const catalog = JSON.parse(fs.readFileSync(path.join(ROOT, "catalog", "index.json"), "utf8"));

@@ -70,7 +70,14 @@ function parseIpv6Groups(groups) {
 }
 
 function expandIpv6(ip) {
-  const value = ip.toLowerCase();
+  let value = ip.toLowerCase();
+  // 末尾的点分 IPv4（::127.0.0.1、::ffff:1.2.3.4）先换成两组十六进制，否则按十六进制解析会得到错的值
+  const dotted = /^(.*:)(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(value);
+  if (dotted) {
+    const [a, b, c, d] = dotted.slice(2).map(Number);
+    if ([a, b, c, d].some(x => x > 255)) return null;
+    value = `${dotted[1]}${((a << 8) | b).toString(16)}:${((c << 8) | d).toString(16)}`;
+  }
   if (value.includes("::")) {
     const [left, right] = value.split("::");
     const l = left ? left.split(":").filter(Boolean) : [];
@@ -108,6 +115,18 @@ function isPrivateIPv6(ip) {
   const g = expandIpv6(ip);
   // ::ffff:127.0.0.1 规范化后是 ::ffff:7f00:1，按 IPv6 判会把回环放过去
   if (g && g.slice(0, 5).every(x => x === 0) && g[5] === 0xffff) return isPrivateIPv4(v4FromGroups(g));
+  // 把 IPv4 嵌在 IPv6 里的几种形式：NAT64（64:ff9b::/96）、IPv4 兼容（::/96）、IPv4 翻译（::ffff:0:0:0/96）、6to4（2002::/16）。
+  // 内网 / 元数据地址（例如 169.254.169.254）换个写法就能绕过上面的 IPv4 检查，所以取出嵌入的 IPv4 再查一遍
+  if (g) {
+    const tail = v4FromGroups(g);
+    if (g.slice(0, 6).every(x => x === 0)) return isPrivateIPv4(tail);
+    if (g[0] === 0x64 && g[1] === 0xff9b && g.slice(2, 6).every(x => x === 0)) return isPrivateIPv4(tail);
+    if (g.slice(0, 4).every(x => x === 0) && g[4] === 0xffff && g[5] === 0) return isPrivateIPv4(tail);
+    if (g[0] === 0x2002) return isPrivateIPv4([g[1] >> 8, g[1] & 0xff, g[2] >> 8, g[2] & 0xff].join("."));
+    if (g[0] === 0x2001 && g[1] === 0) return true; // Teredo
+    if (g[0] === 0x100 && g.slice(1, 4).every(x => x === 0)) return true; // 丢弃前缀 100::/64
+    if ((g[0] & 0xffc0) === 0xfec0) return true; // 已弃用的站点本地 fec0::/10
+  }
   const norm = ip.split("%")[0];
   const m = mappedIpv4(norm);
   if (m && isPrivateIPv4(m)) return true;

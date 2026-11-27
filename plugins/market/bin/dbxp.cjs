@@ -85,6 +85,12 @@ function installBuffer(buf, root, expect = {}) {
     if (sha256(data) !== String(want).toLowerCase()) throw new Error(`插件文件校验失败：${name}`);
   }
 
+  // 包里的每个文件都得在校验清单里：否则可以在清单之外夹带一个没被校验的文件一起装进去
+  for (const f of files) {
+    if (f.name !== "checksums.json" && !Object.prototype.hasOwnProperty.call(list, f.name)) throw new Error(`插件包里有没列入校验清单的文件：${f.name}`);
+    if (/[\\:\0]/.test(f.name)) throw new Error(`插件包里有不安全的路径：${f.name}`);
+  }
+
   const pluginDir = path.join(root, id);
   const vdir = path.join(pluginDir, "versions");
   const tmp = path.join(pluginDir, `.tmp-${crypto.randomBytes(4).toString("hex")}`);

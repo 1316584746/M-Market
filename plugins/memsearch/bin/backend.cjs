@@ -88,7 +88,7 @@ function parseMemoryFile(file) {
     if (!cur) return;
     let text = cur.lines.join("\n").replace(/\s+$/, "");
     let tags = [];
-    const m = /^tags:\s*(.*)\n?/.exec(text);
+    const m = /^tags:[ \t]*(.*)\n?/.exec(text);
     if (m) {
       tags = m[1].split(/[,，]/).map(s => s.trim()).filter(Boolean);
       text = text.slice(m[0].length).replace(/^\n+/, "");
@@ -137,7 +137,7 @@ function addMemory({ text, title, tags }) {
   const tg = (Array.isArray(tags) ? tags : String(tags || "").split(/[,，]/)).map(s => String(s).trim().replace(/[\r\n]/g, " ")).filter(Boolean).slice(0, 12);
   // 正文里如果有会被误认成记忆标题的行，缩进一下，避免破坏文件结构
   const safe = body.replace(/^## (\d{2}:\d{2}.*<!--mem:)/gm, " ## $1");
-  const block = `## ${pad(now.getHours())}:${pad(now.getMinutes())}${t ? ` · ${t}` : ""} <!--mem:${id}-->\n${tg.length ? `tags: ${tg.join(", ")}\n` : ""}${safe}\n\n`;
+  const block = `## ${pad(now.getHours())}:${pad(now.getMinutes())}${t ? ` · ${t}` : ""} <!--mem:${id}-->\n${tg.length || /^tags:/i.test(safe) ? `tags: ${tg.join(", ")}\n` : ""}${safe}\n\n`;
   const file = path.join(memDir(), `${date}.md`);
   fs.appendFileSync(file, block);
   cache.sig = "";
@@ -276,7 +276,7 @@ function snippet(text, terms, width = 220) {
 function search({ query, limit, kind }) {
   const idx = ensureIndex();
   const n = Math.max(1, Math.min(Number(limit) || 8, LIMITS.results));
-  let hits = idx.search(query, n * 3);
+  let hits = idx.search(query, kind === "memory" || kind === "note" ? Infinity : n * 3);
   if (kind === "memory" || kind === "note") hits = hits.filter(h => h.doc.kind === kind);
   return hits.slice(0, n).map(h => ({
     id: h.doc.id,

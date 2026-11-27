@@ -38,9 +38,12 @@ function biliCandidates() {
   return c;
 }
 
+/** Windows 下走 shell 时命令不会自动加引号，路径里有空格（用户名带空格很常见）会在空格处断掉 */
+const shellQuote = c => (WIN && /\s/.test(c) && !/^".*"$/.test(c) ? `"${c}"` : c);
+
 /** 运行 bili（Windows 的 .cmd 需要 shell；参数都是固定的，不拼接用户输入） */
 function runBili(cmd, args, timeout = 15000) {
-  return spawnSync(cmd, args, { encoding: "utf8", timeout, shell: WIN, windowsHide: true });
+  return spawnSync(shellQuote(cmd), args, { encoding: "utf8", timeout, shell: WIN, windowsHide: true });
 }
 
 function findBili() {
@@ -139,7 +142,7 @@ async function start() {
   const found = findBili();
   if (!found) throw new Error("没有找到 bili 命令，请先点「安装」");
   log(`$ ${found.cmd} --port ${port}`);
-  const child = spawn(found.cmd, ["--port", String(port)], { shell: WIN, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
+  const child = spawn(shellQuote(found.cmd), ["--port", String(port)], { shell: WIN, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
   proc = child;
   child.stdout.on("data", d => log(d));
   child.stderr.on("data", d => log(d));

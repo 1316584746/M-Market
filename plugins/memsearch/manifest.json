@@ -1,7 +1,7 @@
 {
   "id": "memsearch",
   "name": "MemSearch",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "给 M-Harness 的长期记忆：Markdown 存储、离线关键词检索、可挂载自己的笔记目录；AI 能通过 memory_search / memory_add 使用。",
   "publisher": "M-Market",
   "license": "MIT",

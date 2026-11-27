@@ -1,21 +1,21 @@
 {
   "id": "better-sidebar",
   "name": "DSH-better-sidebar",
-  "version": "0.1.4",
-  "description": "侧边工作台：文件树、文本查看 / 编辑、文件名和内容搜索、Git 状态 / diff / 暂存。名称与 dsh market 的 DSH-better-sidebar 一致；终端、侧边对话、任务页因宿主不支持而没有。",
+  "version": "0.2.0",
+  "description": "侧边工作台：文件树、文本查看 / 编辑（语法高亮）、Markdown 预览、文件名和内容搜索、Git 状态 / diff / 暂存、Git Graph（分支图）、简易命令面板。名称沿用 dsh market 里的 DSH-better-sidebar；侧边对话、任务页、真正的终端（PTY）在这个宿主里做不了。",
   "publisher": "M-Market",
   "license": "MIT",
   "homepage": "https://github.com/1316584746/M-Market",
   "icon": "assets/icon.svg",
-  "permissions": ["fs.read", "fs.write", "process.spawn:git"],
+  "permissions": ["fs.read", "fs.write", "process.spawn:git", "process.exec"],
   "entrypoints": {
     "backend": { "executable": "bin/backend.cjs" },
     "ui": { "root": "ui", "entry": "ui/index.html" }
   },
   "contributions": [{ "type": "workbench", "icon": "assets/icon.svg", "label": "DSH-better-sidebar" }],
   "localizations": {
-    "zh-CN": { "name": "DSH-better-sidebar", "description": "侧边工作台：文件树、文本查看 / 编辑、文件名和内容搜索、Git 状态 / diff / 暂存。名称与 dsh market 的 DSH-better-sidebar 一致；终端、侧边对话、任务页因宿主不支持而没有。" },
-    "en": { "name": "DSH-better-sidebar", "description": "Side workbench: file tree, text viewer/editor, name & content search, Git status/diff/stage. Named after DSH-better-sidebar in dsh market; the terminal, side chat and task pages are missing because the host cannot support them." }
+    "zh-CN": { "name": "DSH-better-sidebar", "description": "侧边工作台：文件树、文本查看 / 编辑（语法高亮）、Markdown 预览、文件名和内容搜索、Git 状态 / diff / 暂存、Git Graph（分支图）、简易命令面板。名称沿用 dsh market 里的 DSH-better-sidebar；侧边对话、任务页、真正的终端（PTY）在这个宿主里做不了。" },
+    "en": { "name": "DSH-better-sidebar", "description": "Side workbench: file tree, text viewer/editor with syntax highlighting, Markdown preview, name & content search, Git status/diff/stage, Git Graph, and a simple command panel (no PTY). Named after DSH-better-sidebar in dsh market; side chat, task pages and a real terminal are not possible in this host." }
   },
   "tags": ["files", "git", "editor", "workbench", "sidebar"]
 }

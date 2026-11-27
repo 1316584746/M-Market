@@ -1,0 +1,48 @@
+{
+  "id": "agent-teams",
+  "name": "AgentTeams",
+  "version": "0.1.0",
+  "description": "多 Agent 团队协作：AI 当队长，一句话组好带依赖的任务和持久成员，批准后成员自动领任务、互发消息，页面里实时看进度、任务依赖图和成员动态；任务可加质量门（合同、完成证据、评审不过自动修复 + 复审）。产品模型移植自 NanmiCoder/dsh-agent-teams。",
+  "publisher": "M-Market",
+  "license": "MIT",
+  "homepage": "https://github.com/1316584746/M-Market",
+  "icon": "assets/icon.svg",
+  "permissions": ["fs.read", "fs.write", "process.exec", "net.connect:https", "net.connect:http"],
+  "entrypoints": {
+    "backend": { "executable": "bin/backend.cjs" },
+    "ui": { "root": "ui", "entry": "ui/index.html" }
+  },
+  "contributions": [
+    { "type": "workbench", "icon": "assets/icon.svg", "label": "AgentTeams" },
+    {
+      "type": "mcp",
+      "tools": {
+        "agent_teams_create": { "description": "创建团队（你是队长）：目标、成员和带依赖的任务；默认是待批准的方案" },
+        "agent_teams_approve": { "description": "用户同意后批准方案并开始运行" },
+        "agent_teams_edit_plan": { "description": "待批准阶段整体修改方案" },
+        "agent_teams_add_member": { "description": "加一个成员" },
+        "agent_teams_remove_member": { "description": "移除成员，他没做完的任务退回待办" },
+        "agent_teams_create_task": { "description": "追加一个可以依赖已有任务的任务" },
+        "agent_teams_reassign_task": { "description": "改派任务，旧的尝试作废" },
+        "agent_teams_claim_task": { "description": "领取一个任务" },
+        "agent_teams_update_task": { "description": "更新任务状态并提交结果" },
+        "agent_teams_amend_task": { "description": "队长修订任务合同，需要写原因" },
+        "agent_teams_send_message": { "description": "给队友或队长发消息" },
+        "agent_teams_status": { "description": "看团队进展并取走未读消息，可等待新进展" },
+        "agent_teams_resume": { "description": "恢复被用户暂停的团队" },
+        "agent_teams_delete": { "description": "结束并归档团队" }
+      }
+    }
+  ],
+  "localizations": {
+    "zh-CN": {
+      "name": "AgentTeams",
+      "description": "多 Agent 团队协作：AI 当队长，一句话组好带依赖的任务和持久成员，批准后成员自动领任务、互发消息，页面里实时看进度、任务依赖图和成员动态；任务可加质量门（合同、完成证据、评审不过自动修复 + 复审）。产品模型移植自 NanmiCoder/dsh-agent-teams。"
+    },
+    "en": {
+      "name": "AgentTeams",
+      "description": "Multi-agent teams: the AI acts as captain, plans dependency-aware tasks with durable members, and after approval members claim tasks and message each other while the page shows progress, the task graph and member activity; tasks can carry quality gates (contract, evidence, automatic repair + re-review). The product model is ported from NanmiCoder/dsh-agent-teams."
+    }
+  },
+  "tags": ["agent", "team", "multi-agent", "tasks", "subagent"]
+}

@@ -1,7 +1,7 @@
 {
   "id": "context-insight",
   "name": "Context Insight",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "上下文洞察：读取 M-Harness 的 trace，提供洞察总览（KPI、7 天用量、热力图、技能 / 工具 / 命令排行、会话卡片）和单个会话的 Context 详情（构成、走势、压缩、文件、命令、成本估算），支持中 / 英文，也给 AI 提供统计工具。",
   "publisher": "M-Market",
   "license": "Apache-2.0",

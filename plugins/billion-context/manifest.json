@@ -1,7 +1,7 @@
 {
   "id": "billion-context",
   "name": "billion-context",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "billion-context 上下文压缩代理的管理器：一键安装 / 启动 / 停止，并给出 M-Harness 各模型提供方走代理的地址。",
   "publisher": "M-Market",
   "license": "MIT",

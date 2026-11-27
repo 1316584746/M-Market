@@ -11,6 +11,7 @@
   <button class="dbx-btn dbx-btn--ghost" id="toggle" title="收起 / 展开侧栏">☰</button>
   <div class="root" id="root" title="工作区目录">（未选择）</div>
   <button class="dbx-btn" id="chroot">切换目录</button>
+  <button class="dbx-btn" id="termbtn" title="打开 / 收起命令面板">终端</button>
   <button class="dbx-btn" id="refresh" title="刷新文件树和 Git 状态">刷新</button>
 </header>
 <div class="editdir" id="editroot" hidden>
@@ -45,6 +46,17 @@
     <div class="msgbar" id="msgbar" hidden></div>
     <div class="editor" id="editor">
       <div class="empty dbx-hint">从左侧打开一个文件，或在 Git 里点一个改动看 diff。</div>
+    </div>
+    <div class="term" id="term" hidden>
+      <div class="termhead">
+        <b>终端</b><span class="termcwd" id="termcwd"></span>
+        <span class="dbx-hint">一次一条命令，没有交互式全屏程序；运行中输入一行会发给它的 stdin</span>
+        <button class="dbx-btn dbx-btn--ghost" id="termclear">清空</button>
+        <button class="dbx-btn dbx-btn--ghost" id="termstop" disabled>停止</button>
+        <button class="dbx-btn dbx-btn--ghost" id="termclose" title="收起">×</button>
+      </div>
+      <pre class="termout" id="termout"></pre>
+      <div class="termin"><span class="prompt" id="termprompt">$</span><input id="termline" spellcheck="false" autocomplete="off" placeholder="输入命令，回车运行（↑ ↓ 翻历史）" /></div>
     </div>
   </section>
 </div>

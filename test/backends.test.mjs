@@ -157,6 +157,22 @@ describe("memsearch", () => {
     assert.ok(!r.some(x => x.id === "evil"));
   });
 
+  it("正文第一行恰好是 tags: 开头也不会被当成标签吃掉；按类型过滤不受前几名挤占", async () => {
+    const p = await start("memsearch");
+    const a = await p.call("memory/add", { text: "tags: 这是正文的第一行\n第二行" });
+    const r = await p.call("memory/recent", { limit: 5 });
+    assert.equal(r[0].full, "tags: 这是正文的第一行\n第二行");
+    assert.deepEqual(r[0].tags, []);
+    assert.equal(a.tags.length, 0);
+    for (let i = 0; i < 12; i++) await p.call("memory/add", { text: `缓存策略备忘 ${i} 缓存缓存缓存` });
+    const notes = tmpdir("notes-kind");
+    fs.writeFileSync(path.join(notes, "c.md"), "# 缓存\n只有一句提到缓存的笔记内容。\n");
+    await p.call("sources/add", { path: notes });
+    const hit = await p.call("memory/search", { query: "缓存", kind: "note", limit: 2 });
+    assert.equal(hit.length, 1, "记忆排在前面也不能把笔记挤掉");
+    assert.equal(hit[0].kind, "note");
+  });
+
   it("挂载笔记目录后一起检索（只读）", async () => {
     const p = await start("memsearch");
     const notes = tmpdir("notes");
@@ -335,6 +351,16 @@ describe("billion-context", () => {
     assert.equal(s.port, 8787);
     await assert.rejects(p.call("bili/setPort", { port: 80 }), /1024/);
     assert.equal((await p.call("bili/setPort", { port: 18999 })).port, 18999);
+  });
+
+  it("bili 装在带空格的路径里（用户名带空格）也找得到并能启动", { skip: process.platform !== "win32" }, async () => {
+    const roaming = path.join(tmpdir("bc-sp"), "Doe John", "Roaming");
+    fs.mkdirSync(path.join(roaming, "npm"), { recursive: true });
+    fs.writeFileSync(path.join(roaming, "npm", "bili.cmd"), "@echo off\r\necho 9.8.7\r\n");
+    const p = await start("billion-context", { env: { APPDATA: roaming } });
+    const s = await p.call("bili/status");
+    assert.equal(s.installed, true);
+    assert.equal(s.version, "9.8.7");
   });
 
   it("界面里带有出处标注", () => {

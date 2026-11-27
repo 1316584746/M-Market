@@ -115,7 +115,8 @@ async function isStarred(repo) {
 
 const repoOf = r => {
   const s = String(r ?? "").trim();
-  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(s)) throw new Error(m("仓库要写成 所有者/仓库名", "Write the repository as owner/name"));
+  // 单独的 . / .. 会让请求路径"退一级"（owner/.. 或 ../user），带着令牌打到别的接口上，所以要拒绝
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(s) || s.split("/").some(x => x === "." || x === "..")) throw new Error(m("仓库要写成 所有者/仓库名", "Write the repository as owner/name"));
   return s;
 };
 const intOf = (n, label = "编号") => {
@@ -171,6 +172,8 @@ const methods = {
     const patch = {};
     if (typeof p?.apiBase === "string") patch.apiBase = p.apiBase.trim() ? checkBase(p.apiBase.trim()) : "";
     const prev = cfg.get();
+    // 令牌是发给 API 地址的：换了地址却还沿用原来的令牌，等于把令牌送给新地址，所以换地址必须同时填新地址对应的令牌
+    if (patch.apiBase !== undefined && patch.apiBase !== (prev.apiBase || "") && !t && prev.token) throw new Error(m("更换 API 地址时，请同时填写这个地址对应的令牌（原来的令牌不会发给新地址）", "When changing the API URL, also enter the token for that URL (the old token is never sent to a new host)"));
     if (t) {
       if (/\s/.test(t) || t.length < 20 || t.length > 400) throw new Error(m("令牌格式不对", "Invalid token format"));
       patch.token = t;
