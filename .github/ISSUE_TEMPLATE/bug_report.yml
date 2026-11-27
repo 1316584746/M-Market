@@ -6,7 +6,7 @@ body:
     id: plugin
     attributes:
       label: 哪个插件
-      options: [market（插件市场）, github, memsearch, context-insight, billion-context, better-sidebar, 安装包 / 目录 / 网站, 不确定]
+      options: [github, memsearch, context-insight, billion-context, better-sidebar, 安装包 / 目录 / 网站, 不确定]
     validations:
       required: true
   - type: input

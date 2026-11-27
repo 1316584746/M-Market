@@ -7,6 +7,7 @@
  */
 const fs = require("node:fs");
 const path = require("node:path");
+const { createCtx } = require("./ctx.cjs");
 
 const pad = n => String(n).padStart(2, "0");
 const dayOf = ts => {
@@ -130,11 +131,16 @@ function createInsight({ est, readLines, listFiles, store, config }) {
     return m ? { group: m[1], server: m[2], tool: m[3] } : null;
   };
 
+  const ctxEngine = createCtx({ est, readLines, canonTool, programOf, skillFromPath, toolGroup });
+
   function build(file, st) {
     const p = {
       name: path.basename(file, ".jsonl"),
+      file,
       mtime: st.mtimeMs,
       size: st.size,
+      // 续接上一轮的 Cursor 会话（trace 第一条状态行会写「沿用上一轮的 Cursor 会话」）：多次运行合成一个对话
+      cont: false,
       provider: "",
       input: "",
       startedAt: 0,
@@ -219,18 +225,17 @@ function createInsight({ est, readLines, listFiles, store, config }) {
       const res = /^[✓✗×✘]\s*(\S+)\s*(?:→|->)\s*([\s\S]*)$/.exec(text);
       if (!res) return;
       const ev = takeQ(res[1]);
-      if (ev) ev.out = est(res[2]);
+      if (ev) {
+        ev.out = est(res[2]);
+        ev.ms = Math.max(0, ts - ev.ts);
+      }
       if (res[1] === "shell" || res[1] === "run_command") {
         const cmd = takeQ("cmd:" + res[1]);
         if (cmd) {
-          try {
-            const body = JSON.parse(res[2]);
-            const v = body && body.value && typeof body.value === "object" ? body.value : body;
-            if (v && typeof v.exitCode === "number") cmd.exit = v.exitCode;
-            else if (body && body.status === "error") cmd.exit = 1;
-          } catch {
-            /* 结果被截断时只保留调用次数 */
-          }
+          cmd.ms = Math.max(0, ts - cmd.ts);
+          const em = /"exitCode"\s*:\s*(-?\d+)/.exec(res[2]);
+          if (em) cmd.exit = Number(em[1]);
+          else if (/"status"\s*:\s*"error"/.test(String(res[2]).slice(0, 80))) cmd.exit = 1;
         }
       }
     };
@@ -346,6 +351,10 @@ function createInsight({ est, readLines, listFiles, store, config }) {
         case "agent_progress": {
           const k = e.kind || "text";
           p.progress.counts[k] = (p.progress.counts[k] || 0) + 1;
+          if (k === "status" && !p.progress.sawFirst) {
+            p.progress.sawFirst = true;
+            if (/沿用上一轮的\s*Cursor\s*会话/.test(String(e.line || ""))) p.cont = true;
+          }
           // 状态行是界面提示、错误行不是模型输出，都不算 token
           const n = est(e.line);
           if (k === "thinking") {
@@ -417,6 +426,58 @@ function createInsight({ est, readLines, listFiles, store, config }) {
     return files.map(profileOf);
   }
 
+  // ───────── 对话：续接的运行合并成一个会话 ─────────
+  // 一个 Cursor 对话每发一句话就是一次运行（一个 trace）。续接的那次会在第一条状态行写明「沿用上一轮的会话」，
+  // 这里把它并进同一提供方里最近的那个对话（按时间先后推断；两个对话交替使用时可能归错，可在设置里关掉合并）。
+  const ownArr = ["steps", "toolEv", "skillEv", "cmdEv", "fileEv", "events"];
+  function absorb(s, p) {
+    if (!s._own) {
+      for (const k of ownArr) s[k] = s[k].slice();
+      s.progress = { counts: { ...s.progress.counts }, last: s.progress.last.slice() };
+      s.agent = { ...s.agent };
+      s.files = s.files.slice();
+      s.runs = s.runs.slice();
+      s._own = true;
+    }
+    for (const k of ownArr) s[k].push(...p[k]);
+    for (const [k, v] of Object.entries(p.progress.counts)) s.progress.counts[k] = (s.progress.counts[k] || 0) + v;
+    s.progress.last = s.progress.last.concat(p.progress.last).slice(-30);
+    for (const k of Object.keys(s.agent)) s.agent[k] += p.agent[k] || 0;
+    s.endedAt = p.endedAt || s.endedAt;
+    s.mtime = Math.max(s.mtime, p.mtime);
+    s.size += p.size;
+    s.reason = p.reason;
+    s.error = p.error;
+    s.userMsgs += p.userMsgs;
+    s.overheadMs += p.overheadMs;
+    s.skipped = s.skipped || p.skipped;
+    s.turns += 1;
+    s.runs.push(p.name);
+    s.files.push({ file: p.file, name: p.name });
+  }
+  /** 合并后的会话列表（及 运行名 → 会话 的索引） */
+  function allSessions(limit = 400) {
+    const profiles = allProfiles(limit);
+    const merge = store.get().merge !== false;
+    const asc = profiles.slice().sort((a, b) => (a.startedAt || a.mtime) - (b.startedAt || b.mtime));
+    const out = [];
+    const lastOf = new Map();
+    const byRun = new Map();
+    for (const p of asc) {
+      const prev = lastOf.get(p.provider);
+      if (merge && p.cont && prev) {
+        absorb(prev, p);
+        byRun.set(p.name, prev);
+        continue;
+      }
+      const s = { ...p, turns: 1, runs: [p.name], files: [{ file: p.file, name: p.name }], _own: false };
+      out.push(s);
+      lastOf.set(p.provider, s);
+      byRun.set(p.name, s);
+    }
+    return { list: out, byRun };
+  }
+
   // ───────── 汇总 ─────────
 
   const stepCost = (price, s) => costOf(price, s.prompt, s.output);
@@ -476,7 +537,7 @@ function createInsight({ est, readLines, listFiles, store, config }) {
 
   function overview(o = {}) {
     const cfg = config();
-    const profiles = allProfiles();
+    const profiles = allSessions().list;
     let earliest = "";
     for (const p of profiles) {
       const first = p.steps.length ? p.steps[0].day : p.startedAt ? dayOf(p.startedAt) : "";
@@ -551,7 +612,7 @@ function createInsight({ est, readLines, listFiles, store, config }) {
           kpi.priced = true;
         }
         if (p.steps.some(s => s.agentEstimate)) kpi.agentSessions++;
-        kpi.turns += 1;
+        kpi.turns += p.turns || 1;
         kpi.steps += u.steps;
         kpi.toolExec += tEv.length;
         if (price && u.steps) kpi.pricedSessions++;
@@ -583,6 +644,7 @@ function createInsight({ est, readLines, listFiles, store, config }) {
       const lastComp = last ? last.comp : emptyComp();
       cards.push({
         name: p.name,
+        turns: p.turns || 1,
         provider: p.provider,
         model,
         agent,
@@ -634,9 +696,95 @@ function createInsight({ est, readLines, listFiles, store, config }) {
 
   // ───────── 单个会话（Context 详情） ─────────
 
+  /** 运行名 → 它所在的会话（续接的运行合并后，任何一次运行都能找到整个对话） */
+  function sessionOfFile(file) {
+    const base = path.basename(file, ".jsonl");
+    const hit = allSessions().byRun.get(base);
+    if (hit) return hit;
+    return { ...profileOf(file), turns: 1, runs: [base], files: [{ file, name: base }] };
+  }
+
+  const ctxCache = new Map();
+  function ctxOf(p, window) {
+    const sig = p.files.map(x => x.name).join("|") + ":" + p.mtime + ":" + p.size + ":" + window;
+    const hit = ctxCache.get(p.name);
+    if (hit && hit.sig === sig) return hit.S;
+    const S = ctxEngine.build(p.files, { window });
+    ctxCache.set(p.name, { sig, S });
+    if (ctxCache.size > 6) ctxCache.delete(ctxCache.keys().next().value);
+    return S;
+  }
+
+  /** Context 页要的分步档案 */
+  function ctxPayload(S, price) {
+    const sm = ctxEngine.summarize(S);
+    const files = new Map();
+    for (const x of S.fileOps) {
+      const e = files.get(x.path) || { path: x.path, read: 0, write: 0, search: 0, last: 0, hits: [] };
+      e[x.op]++;
+      e.last = Math.max(e.last, x.ts);
+      if (e.hits.length < 40) e.hits.push({ step: x.step, turn: x.turn, op: x.op, ts: x.ts, tool: x.tool });
+      files.set(x.path, e);
+    }
+    const progs = new Map();
+    for (const x of S.commands) {
+      const e = progs.get(x.program) || { program: x.program, count: 0, fails: 0, ms: 0 };
+      e.count++;
+      e.ms += x.ms || 0;
+      if (x.blocked || x.timedOut || (x.exit != null && x.exit !== 0)) e.fails++;
+      progs.set(x.program, e);
+    }
+    return {
+      agent: S.agent,
+      window: S.window,
+      userInputs: S.userInputs,
+      turns: S.turns,
+      steps: S.steps.map(s => ({
+        n: s.n, turn: s.turn, run: s.run, ts: s.ts, endTs: s.endTs, ms: s.ms, comp: s.comp, delta: s.delta, prompt: s.prompt, output: s.output,
+        estimated: s.estimated, actual: s.actual, timing: s.timing, brief: s.brief, flags: s.flags, calls: s.calls.length,
+        callList: s.calls.slice(0, 12).map(x => ({ name: x.name, ms: x.ms, err: x.err })),
+        cost: costOf(price, s.prompt, s.output),
+      })),
+      events: S.events.slice(-400),
+      live: S.live,
+      subagents: S.subagents,
+      summary: sm,
+      tools: [...S.tools.values()].sort((a, b) => b.count - a.count),
+      files: [...files.values()].sort((a, b) => b.last - a.last).slice(0, 400),
+      commands: { programs: [...progs.values()].sort((a, b) => b.count - a.count), runs: S.commands.slice(-500).reverse() },
+    };
+  }
+
+  function sessionList(limit = 200) {
+    const cfg = config();
+    return allSessions()
+      .list.slice()
+      .sort((a, b) => (b.endedAt || b.mtime) - (a.endedAt || a.mtime))
+      .slice(0, limit)
+      .map(p => {
+        const { model, agent } = providerOf(cfg, p.provider);
+        return { name: p.name, input: p.input.slice(0, 120), provider: p.provider, model, agent, turns: p.turns || 1, startedAt: p.startedAt, lastActive: p.endedAt || p.mtime, reason: p.reason };
+      });
+  }
+
+  /** 上下文浏览器的条目：mode = total（到这一步为止窗口里的全部）/ delta（这一步新增的） */
+  function items(file, stepN, mode) {
+    const cfg = config();
+    const p = sessionOfFile(file);
+    const S = ctxOf(p, cfg.limits?.contextTokens || 0);
+    if (!S.steps.length) return { step: 0, items: [], estimated: S.agent };
+    const step = S.steps.find(s => s.n === stepN) || S.steps[S.steps.length - 1];
+    if (S.agent) return { step: step.n, estimated: true, items: ctxEngine.agentItems(S, step.n, mode === "delta" ? "delta" : "total") };
+    const prev = S.steps.find(s => s.n === step.n - 1 && s.run === step.run);
+    const run = p.files.find(x => x.name === step.run);
+    let list = ctxEngine.modelItems(run ? run.file : file, step.local, prev ? prev.local : null);
+    if (mode === "delta") list = list.filter(x => x.isNew || !prev);
+    return { step: step.n, estimated: false, items: list };
+  }
+
   function detail(file) {
     const cfg = config();
-    const p = profileOf(file);
+    const p = sessionOfFile(file);
     const { model, agent } = providerOf(cfg, p.provider);
     const price = priceOf(model);
     const u = usageIn(p, price, null);
@@ -685,8 +833,11 @@ function createInsight({ est, readLines, listFiles, store, config }) {
       skipped: p.skipped,
       price,
       contextLimit: limit,
+      turns: p.turns || 1,
+      runs: p.runs || [p.name],
+      ctx: ctxPayload(ctxOf(p, limit), price),
       stats: {
-        turns: 1,
+        turns: p.turns || 1,
         steps: u.steps,
         userInputs: p.userMsgs,
         toolCalls: p.toolEv.length,
@@ -736,7 +887,7 @@ function createInsight({ est, readLines, listFiles, store, config }) {
     return [];
   }
 
-  return { overview, detail, messages, priceOf, providerOf, profileOf, allProfiles, PRICES, CATS };
+  return { overview, detail, messages, items, sessionList, priceOf, providerOf, profileOf, allProfiles, allSessions, PRICES, CATS };
 }
 
 module.exports = { createInsight, CATS, dayOf };

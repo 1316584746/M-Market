@@ -96,13 +96,15 @@ describe("context-insight 0.3：耗时、范围、余额", () => {
     assert.deepEqual([bad.currency, bad.fx, bad.balance, bad.range], ["usd", 7.2, true, "7"]);
   });
 
-  it("DeepSeek 余额：没有可用 key 不联网也不报错；关掉开关就是未启用", async () => {
+  it("余额：当前提供方（最近一次运行用的 ds，type=openai）没有余额接口，说明原因、不联网；关掉开关就是未启用", async () => {
     const p = launch("context-insight", { home });
     running.push(p);
     const b = await p.call("balance/get", { force: true });
     assert.equal(b.enabled, true);
-    assert.equal(b.available, false, "key 来自没设置的环境变量，解不出来");
-    assert.match(b.reason, /没有找到/);
+    assert.equal(b.available, false);
+    assert.equal(b.unsupported, true);
+    assert.equal(b.provider, "ds");
+    assert.match(b.reason, /OpenAI.*没有提供/);
     assert.ok(!JSON.stringify(b).includes("CI_TEST_NO_SUCH_ENV_KEY"), "不把配置里的 key 引用带回界面");
     await p.call("prefs/set", { balance: false });
     assert.deepEqual(await p.call("balance/get", { force: true }), { enabled: false });

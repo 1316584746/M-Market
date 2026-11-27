@@ -258,6 +258,8 @@ const PREF_KEYS = {
   currency: v => (v === "cny" ? "cny" : "usd"),
   fx: v => (Number(v) >= 0.1 && Number(v) <= 100 ? Number(v) : 7.2),
   balance: v => v !== false,
+  // 续接的运行（同一个 Cursor 对话的每一轮）合成一个会话；两个对话交替使用时可能归错，可以关掉
+  merge: v => v !== false,
   sort: v => (["recent", "tokens", "context"].includes(v) ? v : "recent"),
   group: v => (v === "provider" ? "provider" : "none"),
   prices: v => (Array.isArray(v) ? v.filter(x => x && String(x.match || "").trim()).slice(0, 40).map(x => ({ match: String(x.match).trim(), in: Number(x.in) || 0, out: Number(x.out) || 0 })) : []),
@@ -272,33 +274,101 @@ const prefs = () => {
 const fmtTok = n => (n >= 1e6 ? (n / 1e6).toFixed(2) + "M" : n >= 1e4 ? (n / 1e3).toFixed(1) + "k" : String(Math.round(n)));
 const fmtCost = c => (c == null ? "—" : c < 0.01 ? "<$0.01" : "$" + c.toFixed(2));
 
-// ───────── DeepSeek 余额 ─────────
-// 只在 M-Harness 配置里有指向 https://api.deepseek.com 的提供方、且能解出 key 时才查，key 只发给这个地址，也不会返回给界面。
-// 查一次缓存 5 分钟；设置里可以关掉。
+// ───────── 当前提供方的余额 ─────────
+// 查的是「当前在用的那个提供方」：最近一次运行 trace 里的 provider，没有 trace 就用配置里的 defaultProvider。
+// 只有几家有「用 key 查余额」的接口（DeepSeek / Moonshot / SiliconFlow / OpenRouter）：key 只发给它自己的接口，也不会返回给界面。
+// 其余（Cursor、OpenAI、Anthropic、智谱、命令行 Agent）没有这种接口，直接说明，不联网。查一次缓存 5 分钟；设置里可以关掉。
 
 const expandEnv = v => (typeof v === "string" ? v.replace(/\$\{([A-Z0-9_]+)\}/gi, (_, k) => process.env[k] ?? "") : "");
-let balanceCache = { at: 0, value: null };
+const balanceCache = new Map(); // 提供方名 -> { at, value }
+const num = x => Number(x) || 0;
 
-async function deepseekBalance(force) {
+const BALANCE_HOSTS = [
+  {
+    re: /^https:\/\/api\.deepseek\.com(\/|$)/i,
+    label: "DeepSeek",
+    url: () => "https://api.deepseek.com/user/balance",
+    parse: j => ({ usable: j.is_available === true, balances: (Array.isArray(j.balance_infos) ? j.balance_infos : []).map(b => ({ currency: String(b.currency || ""), total: num(b.total_balance), granted: num(b.granted_balance), toppedUp: num(b.topped_up_balance) })).filter(b => b.currency) }),
+  },
+  {
+    re: /^https:\/\/api\.moonshot\.(cn|ai)(\/|$)/i,
+    label: "Moonshot",
+    url: m => `https://api.moonshot.${m[1].toLowerCase()}/v1/users/me/balance`,
+    parse: (j, m) => {
+      const d = j.data || {};
+      const total = num(d.available_balance);
+      return { usable: total > 0, balances: d.available_balance == null ? [] : [{ currency: m[1].toLowerCase() === "cn" ? "CNY" : "USD", total, granted: num(d.voucher_balance), toppedUp: num(d.cash_balance) }] };
+    },
+  },
+  {
+    re: /^https:\/\/api\.siliconflow\.(cn|com)(\/|$)/i,
+    label: "SiliconFlow",
+    url: m => `https://api.siliconflow.${m[1].toLowerCase()}/v1/user/info`,
+    parse: (j, m) => {
+      const d = j.data || {};
+      const total = num(d.totalBalance);
+      return { usable: total > 0, balances: d.totalBalance == null ? [] : [{ currency: m[1].toLowerCase() === "cn" ? "CNY" : "USD", total, granted: num(d.balance), toppedUp: num(d.chargeBalance) }] };
+    },
+  },
+  {
+    re: /^https:\/\/openrouter\.ai(\/|$)/i,
+    label: "OpenRouter",
+    url: () => "https://openrouter.ai/api/v1/credits",
+    parse: j => {
+      const d = j.data || {};
+      const total = num(d.total_credits) - num(d.total_usage);
+      return { usable: total > 0, balances: d.total_credits == null ? [] : [{ currency: "USD", total, granted: 0, toppedUp: num(d.total_credits) }] };
+    },
+  },
+];
+
+const NO_BALANCE = {
+  "cursor-sdk": "Cursor 没有提供用 API key 查余额的接口（用量请在 cursor.com 的 Dashboard 里看）",
+  cli: "命令行 Agent 没有余额可查",
+  anthropic: "Anthropic 没有提供用普通 API key 查余额的接口",
+  openai: "OpenAI 没有提供用普通 API key 查余额的接口",
+  "openai-compat": "这个提供方没有公开的余额接口",
+};
+
+/** 当前在用的提供方：最近一次运行用的；没有就是配置里的默认提供方 */
+function currentProvider(cfg) {
+  const providers = cfg.providers || {};
+  let name = "";
+  try {
+    name = listRuns(1)[0]?.provider || "";
+  } catch {
+    /* 没有 trace 就看默认 */
+  }
+  if (!name || !providers[name]) name = typeof cfg.defaultProvider === "string" ? cfg.defaultProvider : "";
+  if (!name || !providers[name]) name = Object.keys(providers)[0] || "";
+  return { name, prov: providers[name] || null };
+}
+
+async function providerBalance(force) {
   if (store.get().balance === false) return { enabled: false };
-  if (!force && balanceCache.value && Date.now() - balanceCache.at < 5 * 60_000) return balanceCache.value;
   const cfg = harnessConfig(harnessHome());
-  const prov = Object.values(cfg.providers || {}).find(p => p && /^https:\/\/api\.deepseek\.com(\/|$)/i.test(String(p.baseURL || "")) && expandEnv(p.apiKey).trim());
+  const { name, prov } = currentProvider(cfg);
+  if (!prov) return { enabled: true, available: false, reason: "没有找到当前使用的提供方" };
+  const hit = balanceCache.get(name);
+  if (!force && hit && Date.now() - hit.at < 5 * 60_000) return hit.value;
+  const base = String(prov.baseURL || "");
+  let m = null;
+  const host = BALANCE_HOSTS.find(h => (m = h.re.exec(base)));
+  const key = expandEnv(prov.apiKey).trim();
   let value;
-  if (!prov) value = { enabled: true, available: false, reason: "没有找到可用的 DeepSeek 提供方或 key" };
+  if (!host) value = { enabled: true, provider: name, label: name, available: false, unsupported: true, reason: `${name}：${NO_BALANCE[prov.type] || NO_BALANCE["openai-compat"]}` };
+  else if (!key) value = { enabled: true, provider: name, label: host.label, available: false, reason: `${name} 没有可用的 key` };
   else {
     try {
-      const res = await fetch("https://api.deepseek.com/user/balance", { headers: { accept: "application/json", authorization: `Bearer ${expandEnv(prov.apiKey).trim()}` }, signal: AbortSignal.timeout(8000) });
+      const res = await fetch(host.url(m), { headers: { accept: "application/json", authorization: `Bearer ${key}` }, redirect: "manual", signal: AbortSignal.timeout(8000) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const j = await res.json();
-      const infos = Array.isArray(j.balance_infos) ? j.balance_infos : [];
-      const balances = infos.map(b => ({ currency: String(b.currency || ""), total: Number(b.total_balance) || 0, granted: Number(b.granted_balance) || 0, toppedUp: Number(b.topped_up_balance) || 0 })).filter(b => b.currency);
-      value = balances.length ? { enabled: true, available: true, usable: j.is_available === true, balances } : { enabled: true, available: false, reason: "返回里没有余额信息" };
+      const r = host.parse(await res.json(), m);
+      value = r.balances.length ? { enabled: true, provider: name, label: host.label, available: true, usable: r.usable, balances: r.balances } : { enabled: true, provider: name, label: host.label, available: false, reason: "返回里没有余额信息" };
     } catch (e) {
-      value = { enabled: true, available: false, failed: true, reason: `查询失败：${e instanceof Error ? e.message : String(e)}` };
+      value = { enabled: true, provider: name, label: host.label, available: false, failed: true, reason: `查询失败：${(e instanceof Error ? e.message : String(e)).split(key).join("***")}` };
     }
   }
-  balanceCache = { at: Date.now(), value };
+  balanceCache.set(name, { at: Date.now(), value });
   return value;
 }
 
@@ -345,9 +415,11 @@ serve({
     "runs/messages": async p => stepMessages(fileOf(p.name), Number(p.step), Number(p.limit) || 200),
     // 洞察页 / Context 详情
     "insights/overview": async p => insight.overview(p || {}),
-    "balance/get": async p => deepseekBalance(!!(p && p.force)),
+    "balance/get": async p => providerBalance(!!(p && p.force)),
     "session/get": async p => insight.detail(fileOf(p.name)),
     "session/messages": async p => insight.messages(fileOf(p.name), Number(p.step)),
+    "session/list": async p => insight.sessionList(Math.min(Number(p && p.limit) || 200, 400)),
+    "session/items": async p => insight.items(fileOf(p.name), Number(p.step), p.mode === "delta" ? "delta" : "total"),
     "prefs/get": async () => ({ ...prefs(), prices: store.get().prices || [], builtin: insight.PRICES.map(x => ({ match: x[0].source, in: x[1], out: x[2] })) }),
     "prefs/set": async p => {
       const patch = {};

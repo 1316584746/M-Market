@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 // 本地调试插件界面：不需要 M-Harness，在普通浏览器里打开插件的 ui/，后台用真实的 bin/backend.cjs。
-//   node scripts/dev-ui.mjs market [端口]    市场（来源：本仓库的目录 + 假的第二个来源）
 //   node scripts/dev-ui.mjs github [端口]    GitHub（接一个假的 GitHub API，令牌见终端输出）
 //   node scripts/dev-ui.mjs <插件id> [端口]  其它插件
 import fs from "node:fs";
@@ -43,7 +42,8 @@ const SHIM = `<style>${KIT}</style><script>(function(){
 
 const cleanups = [];
 const env = {};
-const home = fs.mkdtempSync(path.join(process.env.TEMP || "/tmp", "mm-dev-"));
+// DEV_HOME=某个真实的 M-Harness 数据目录：直接看真实 trace（不会造假数据）
+const home = process.env.DEV_HOME || fs.mkdtempSync(path.join(process.env.TEMP || "/tmp", "mm-dev-"));
 const plugins = path.join(home, "plugins");
 fs.mkdirSync(plugins, { recursive: true });
 env.HARNESS_PLUGINS_DIR = plugins;
@@ -55,7 +55,7 @@ if (id === "github") {
   console.log(`假 GitHub API：${mock.base}\n登录用的令牌：${TOKEN}`);
 }
 
-if (id === "context-insight") console.log(`假 trace：${seedTraces(home)}`);
+if (id === "context-insight" && !process.env.DEV_HOME) console.log(`假 trace：${seedTraces(home)}`);
 
 const plug = launch(id, { home, env });
 await plug.init();
@@ -145,33 +145,6 @@ if (id === "better-sidebar") {
   fs.writeFileSync(path.join(ws, "app.js"), fs.readFileSync(path.join(ws, "app.js"), "utf8") + "// 未提交的改动\n");
   await plug.call("ws/set", { path: ws });
   console.log(`better-sidebar 演示仓库：${ws}`);
-}
-
-if (id === "market") {
-  // 本仓库的目录：把安装包地址改成本机，这样「安装」真的能走完
-  const catalog = JSON.parse(fs.readFileSync(path.join(ROOT, "catalog", "index.json"), "utf8"));
-  const srv = http.createServer((req, res) => {
-    if (req.url === "/catalog/index.json") {
-      const c = JSON.parse(JSON.stringify(catalog));
-      for (const p of c.plugins) for (const v of p.versions) for (const a of v.artifacts) a.url = `http://127.0.0.1:${port + 1}/pkg/${path.basename(a.url)}`;
-      res.writeHead(200, { "content-type": "application/json" });
-      return res.end(JSON.stringify(c));
-    }
-    const m = /^\/pkg\/([\w.-]+\.dbxp)$/.exec(req.url);
-    if (m && fs.existsSync(path.join(ROOT, "packages", m[1]))) {
-      res.writeHead(200, { "content-type": "application/octet-stream" });
-      return res.end(fs.readFileSync(path.join(ROOT, "packages", m[1])));
-    }
-    res.writeHead(404).end();
-  });
-  await new Promise(r => srv.listen(port + 1, "127.0.0.1", r));
-  cleanups.push(() => srv.close());
-  await plug.call("market/saveSettings", {
-    sources: [
-      { id: "local", name: "本仓库目录", url: `http://127.0.0.1:${port + 1}/catalog/index.json`, enabled: true },
-      { id: "dsh-hub", name: "社区插件索引", url: "https://dshbazaar.io/api/index.json", enabled: true },
-    ],
-  });
 }
 
 const mime = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml" };

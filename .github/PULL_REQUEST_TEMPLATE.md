@@ -4,7 +4,6 @@
 
 ## 涉及的插件
 
-- [ ] market
 - [ ] github
 - [ ] memsearch
 - [ ] context-insight

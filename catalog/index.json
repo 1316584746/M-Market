@@ -25,17 +25,17 @@
         "net.connect:https",
         "net.connect:http"
       ],
-      "latestVersion": "0.1.0",
+      "latestVersion": "0.1.1",
       "versions": [
         {
-          "version": "0.1.0",
+          "version": "0.1.1",
           "releasedAt": "2026-11-27",
           "artifacts": [
             {
               "target": "universal",
-              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/agent-teams-0.1.0.dbxp",
-              "sha256": "e12b3f9a8cfcb8a57ac627aac37bd79ef0234a3745bc0d6e021522a60a667273",
-              "size": 62100
+              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/agent-teams-0.1.1.dbxp",
+              "sha256": "27b87c97d2acc490abcfd76fe0d93ffef69aed3b213ebc749d1ba81f67a2cf93",
+              "size": 64539
             }
           ]
         }
@@ -148,7 +148,7 @@
       "id": "context-insight",
       "name": "Context Insight",
       "publisher": "M-Market",
-      "description": "上下文洞察：读取 M-Harness 的 trace，提供洞察总览（KPI、7 天用量、热力图、技能 / 工具 / 命令排行、会话卡片）和单个会话的 Context 详情（构成、走势、压缩、文件、命令、成本估算），支持中 / 英文，也给 AI 提供统计工具。",
+      "description": "上下文洞察：读取 M-Harness 的 trace，提供洞察总览（KPI、7 天用量、热力图、技能 / 工具 / 命令排行、会话卡片）和单个会话的分步 Context 视图（统计、Token / 耗时、当前上下文、时间线、上下文浏览器、事件、文件、命令），支持中 / 英文，也给 AI 提供统计工具。",
       "license": "Apache-2.0",
       "homepage": "https://github.com/1316584746/M-Market",
       "icon": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/plugins/context-insight/assets/icon.svg",
@@ -164,17 +164,17 @@
         "fs.read",
         "net.connect:https"
       ],
-      "latestVersion": "0.3.1",
+      "latestVersion": "0.4.0",
       "versions": [
         {
-          "version": "0.3.1",
+          "version": "0.4.0",
           "releasedAt": "2026-11-27",
           "artifacts": [
             {
               "target": "universal",
-              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/context-insight-0.3.1.dbxp",
-              "sha256": "d8b3bd3e793de8e4f2e50dde7459d3ddd49dfd4f91ba0edc70a2e92e35d86495",
-              "size": 49055
+              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/context-insight-0.4.0.dbxp",
+              "sha256": "c4c79c44a320c97e3ba4781145f4825453ae309a69ea4358856786b10bfa3ef0",
+              "size": 77605
             }
           ]
         }
@@ -182,11 +182,11 @@
       "localizations": {
         "zh-CN": {
           "name": "上下文洞察",
-          "description": "读取 M-Harness 的 trace，提供洞察总览（KPI、7 天用量、热力图、技能 / 工具 / 命令排行、会话卡片）和单个会话的 Context 详情（构成、走势、压缩、文件、命令、成本估算），支持中 / 英文，也给 AI 提供统计工具。"
+          "description": "读取 M-Harness 的 trace，提供洞察总览（KPI、7 天用量、热力图、技能 / 工具 / 命令排行、会话卡片）和单个会话的分步 Context 视图（统计、Token / 耗时、当前上下文、时间线、上下文浏览器、事件、文件、命令），支持中 / 英文，也给 AI 提供统计工具。"
         },
         "en": {
           "name": "Context Insight",
-          "description": "Reads M-Harness traces: an insights overview (KPIs, 7-day usage, heatmap, skill / tool / command rankings, session cards) and a per-session Context view (composition, trend, compaction, files, commands, cost estimate). Bilingual, and exposes stats tools to the AI."
+          "description": "Reads M-Harness traces: an insights overview (KPIs, 7-day usage, heatmap, skill / tool / command rankings, session cards) and a per-session step-by-step Context view (stats, token / timing, live context, timeline, context browser, events, files, commands). Bilingual, and exposes stats tools to the AI."
         }
       }
     },
@@ -240,7 +240,7 @@
       "id": "grafana",
       "name": "Grafana",
       "publisher": "M-Market",
-      "description": "只读连接你自己的 Grafana：组织与健康状态、正在触发的告警、仪表盘搜索和面板列表。服务账号令牌只留在本机。",
+      "description": "只读连接你自己的 Grafana：组织与健康状态、正在触发的告警、仪表盘搜索和面板列表。可用服务账号令牌或账号密码登录，凭据只留在本机。",
       "license": "MIT",
       "homepage": "https://github.com/1316584746/M-Market",
       "icon": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/plugins/grafana/assets/icon.svg",
@@ -255,81 +255,29 @@
         "net.connect:https",
         "net.connect:http"
       ],
-      "latestVersion": "0.1.0",
+      "latestVersion": "0.1.1",
       "versions": [
         {
-          "version": "0.1.0",
-          "releasedAt": "2026-11-24",
-          "artifacts": [
-            {
-              "target": "universal",
-              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/grafana-0.1.0.dbxp",
-              "sha256": "231e628c1c1cf62612760d9dee2b36acc704b218e4465de848e47d320fc9cf3e",
-              "size": 14456
-            }
-          ]
-        }
-      ],
-      "localizations": {
-        "zh-CN": {
-          "name": "Grafana",
-          "description": "只读连接你自己的 Grafana：组织与健康状态、正在触发的告警、仪表盘搜索和面板列表。服务账号令牌只留在本机。"
-        },
-        "en": {
-          "name": "Grafana",
-          "description": "Read-only console for your own Grafana: org and health, firing alerts, dashboard search and panel lists. The service-account token stays on this machine."
-        }
-      }
-    },
-    {
-      "id": "market",
-      "name": "Plugin Market",
-      "publisher": "M-Market",
-      "description": "Plugin market for M-Harness: multi-source catalogs, search, one-click install/update/uninstall, favorites, groups, notes, and backup via JSON / WebDAV / private Gist.",
-      "license": "MIT",
-      "homepage": "https://github.com/1316584746/M-Market",
-      "icon": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/plugins/market/assets/icon.svg",
-      "source": "https://github.com/1316584746/M-Market",
-      "tags": [
-        "market",
-        "plugins",
-        "installer"
-      ],
-      "permissions": [
-        "fs.read",
-        "fs.write",
-        "net.connect:https",
-        "host.network:https://github.com",
-        "host.network:https://avatars.githubusercontent.com",
-        "host.network:https://raw.githubusercontent.com",
-        "host.network:https://dl.dbxio.com",
-        "host.network:https://cdn.jsdelivr.net",
-        "host.network:https://user-images.githubusercontent.com",
-        "host.network:https://private-user-images.githubusercontent.com"
-      ],
-      "latestVersion": "0.1.2",
-      "versions": [
-        {
-          "version": "0.1.2",
+          "version": "0.1.1",
           "releasedAt": "2026-11-27",
           "artifacts": [
             {
               "target": "universal",
-              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/market-0.1.2.dbxp",
-              "sha256": "426012c2ffdf43472394d33270645e2323facf8d5d486282c3252af7264b09cd",
-              "size": 37619
+              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/grafana-0.1.1.dbxp",
+              "sha256": "3abba923bfaef75e7aae3979da956c91380e719f3f711cfc4ed4964bf377940f",
+              "size": 16566
             }
           ]
         }
       ],
       "localizations": {
         "zh-CN": {
-          "name": "插件市场",
-          "description": "多来源插件市场：搜索筛选、一键安装 / 更新 / 卸载、收藏、分组、备注，备份还原支持 JSON、WebDAV、私有 Gist。AI 可搜索和安装插件。"
+          "name": "Grafana",
+          "description": "只读连接你自己的 Grafana：组织与健康状态、正在触发的告警、仪表盘搜索和面板列表。可用服务账号令牌或账号密码登录，凭据只留在本机。"
         },
         "en": {
-          "name": "Plugin Market",
-          "description": "Plugin market for M-Harness: multi-source catalogs, search, one-click install/update/uninstall, favorites, groups, notes, and backup via JSON / WebDAV / private Gist."
+          "name": "Grafana",
+          "description": "Read-only console for your own Grafana: org and health, firing alerts, dashboard search and panel lists. Sign in with a service-account token or an account + password; credentials stay on this machine."
         }
       }
     },

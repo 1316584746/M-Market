@@ -1,8 +1,8 @@
 {
   "id": "grafana",
   "name": "Grafana",
-  "version": "0.1.0",
-  "description": "只读连接你自己的 Grafana：组织与健康状态、正在触发的告警、仪表盘搜索和面板列表。服务账号令牌只留在本机。",
+  "version": "0.1.1",
+  "description": "只读连接你自己的 Grafana：组织与健康状态、正在触发的告警、仪表盘搜索和面板列表。可用服务账号令牌或账号密码登录，凭据只留在本机。",
   "publisher": "M-Market",
   "license": "MIT",
   "homepage": "https://github.com/1316584746/M-Market",
@@ -27,11 +27,11 @@
   "localizations": {
     "zh-CN": {
       "name": "Grafana",
-      "description": "只读连接你自己的 Grafana：组织与健康状态、正在触发的告警、仪表盘搜索和面板列表。服务账号令牌只留在本机。"
+      "description": "只读连接你自己的 Grafana：组织与健康状态、正在触发的告警、仪表盘搜索和面板列表。可用服务账号令牌或账号密码登录，凭据只留在本机。"
     },
     "en": {
       "name": "Grafana",
-      "description": "Read-only console for your own Grafana: org and health, firing alerts, dashboard search and panel lists. The service-account token stays on this machine."
+      "description": "Read-only console for your own Grafana: org and health, firing alerts, dashboard search and panel lists. Sign in with a service-account token or an account + password; credentials stay on this machine."
     }
   },
   "tags": ["grafana", "monitoring", "alerts", "dashboard"]

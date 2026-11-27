@@ -164,22 +164,46 @@
   }
 
   function viewEmpty() {
-    return '<div class="empty"><h2>还没有团队</h2><p>让 AI 当队长，对它说一句话就行，比如：</p><pre>组一个团队，把 src 目录里的模块分析一遍：\n一个人读代码，一个人写总结，总结等读完再开始。</pre><p class="dim">AI 会调用 agent_teams_create 提出方案（成员和带依赖的任务）。你在这里确认后点「批准并运行」，成员就会自动领任务干活，进度和动态实时显示在这里。</p><p class="dim">成员用 M-Harness 里 type 为 openai / openai-compat 的模型提供方；点右上角「设置」可以看哪些可用、指定工作目录。</p></div>';
+    return '<div class="empty"><h2>还没有团队</h2><p>让 AI 当队长，对它说一句话就行，比如：</p><pre>组一个团队，把 src 目录里的模块分析一遍：\n一个人读代码，一个人写总结，总结等读完再开始。</pre><p class="dim">AI 会调用 agent_teams_create 提出方案（成员和带依赖的任务）。你在这里确认后点「批准并运行」，成员就会自动领任务干活，进度和动态实时显示在这里。</p><p class="dim">成员用 M-Harness 里 type 为 openai-compat / anthropic 的模型提供方（Cursor 和命令行 Agent 不是模型接口，成员用不了）；点右上角「设置」可以看当前在用的 Agent、成员会用哪个模型、指定工作目录。</p></div>';
   }
 
   // ───────── 设置 ─────────
   function viewDialog() {
     const s = S.dlg;
     if (!s) return "";
-    return '<div class="modal" id="modal"><div class="dlg"><h3>AgentTeams 设置</h3>' +
-      '<div class="frow"><label>工作目录</label><input id="sWs" placeholder="' + esc((S.info && S.info.workspace) || "") + '" value="' + esc(s.workspace) + '" /></div><div class="dim sp-b">成员读写文件、执行命令都限定在这个目录里；留空 = 用 M-Harness 配置里的 workspace。当前：' + esc((S.info && S.info.workspace) || "") + "</div>" +
-      '<div class="frow"><label>同时干活的成员数</label><input id="sPar" type="number" min="1" max="16" value="' + esc(s.maxParallel) + '" /></div>' +
-      '<div class="frow"><label>每轮最多步数</label><input id="sSteps" type="number" min="1" max="100" value="' + esc(s.maxSteps) + '" /></div>' +
-      "<h4>可用的模型提供方</h4>" + (s.providers.length ? s.providers.map(p => '<div class="dim">' + esc(p.name) + " · " + esc(p.model || "（未配置模型）") + " · " + (p.hasKey ? "key 就绪" : '<span class="warn">没解出 key</span>') + "</div>").join("") : '<div class="warn">M-Harness 里没有 type 为 openai / openai-compat 的提供方（cursor-sdk / 命令行 Agent 不能给成员用）。可以在下面填一条路由。</div>') +
-      "<h4>自定义路由（可选，留空用上面的）</h4>" +
-      '<div class="frow"><label>接口地址</label><input id="rUrl" placeholder="https://api.deepseek.com" value="' + esc(s.route ? s.route.baseURL : "") + '" /></div>' +
-      '<div class="frow"><label>模型</label><input id="rModel" value="' + esc(s.route ? s.route.model : "") + '" /></div>' +
-      '<div class="frow"><label>key</label><input id="rKey" type="password" placeholder="' + (s.route && s.route.hasKey ? "已保存，留空不改" : "") + '" /></div><div class="dim sp-b">key 以明文存在插件数据目录里，只用来请求你填的接口地址，不会显示在界面里。</div>' +
+    const all = s.all || [];
+    const cur = s.current;
+    const eff = s.effective || {};
+    const typeName = t => (t === "cursor-sdk" ? "Cursor" : t === "cli" ? "命令行 Agent" : t === "anthropic" ? "Anthropic" : t === "openai-compat" ? "OpenAI 兼容" : t);
+    const keyBadge = p => (p.hasKey ? '<span class="pv-b ok">key 就绪</span>' : '<span class="pv-b bad" title="' + esc(p.keyEnv ? "环境变量 " + p.keyEnv + " 没有设置" : "没有配置 key") + '">' + esc(p.keyEnv ? "缺 " + p.keyEnv : "没有 key") + "</span>");
+    const usable = all.filter(p => p.usable);
+    const other = all.filter(p => !p.usable);
+    // 当前在用的 Agent
+    let now;
+    if (cur) {
+      now = '<div class="pv-now"><div class="pv-nh"><b>' + esc(cur.name) + '</b><span class="pv-b">' + esc(typeName(cur.type)) + "</span>" + (cur.model ? '<span class="dim">' + esc(cur.model) + "</span>" : "") + '<span class="pv-b' + (cur.recent ? " on" : "") + '">' + (cur.recent ? "最近一次运行用的" : "M-Harness 默认") + "</span></div>" +
+        (cur.usable ? '<div class="dim">它是模型接口，成员可以直接用。</div>' : '<div class="pv-warn">' + esc(cur.reason) + "。</div>") + "</div>";
+    } else now = '<div class="dim">没有读到 M-Harness 的提供方配置。</div>';
+    const effLine = eff.ok
+      ? '<div class="pv-eff ok">成员实际会用：<b>' + esc(eff.provider) + "</b> · " + esc(eff.model) + "</div>"
+      : '<div class="pv-eff bad">成员现在没有可用的模型：' + esc(eff.error || "未知原因") + "</div>";
+    const radio = (val, title, sub, badges, checked) => '<label class="pv-card' + (checked ? " on" : "") + '"><input type="radio" name="pv" value="' + esc(val) + '"' + (checked ? " checked" : "") + " /><div><div class=\"pv-t\"><b>" + esc(title) + "</b>" + badges + '</div><div class="dim">' + esc(sub) + "</div></div></label>";
+    const list = radio("", "跟随 M-Harness（推荐）", "优先用默认提供方「" + (s.defaultName || "-") + "」，它不能用或没有 key 时换第一个有 key 的", "", !s.provider) +
+      usable.map(p => radio(p.name, p.name, (p.model || "（未配置模型）") + " · " + p.baseURL, (p.name === s.defaultName ? '<span class="pv-b">默认</span>' : "") + keyBadge(p), s.provider === p.name)).join("");
+    const na = other.length ? '<div class="pv-na"><div class="dim">这些成员用不了：</div>' + other.map(p => '<div class="pv-off"><b>' + esc(p.name) + '</b><span class="pv-b">' + esc(typeName(p.type)) + '</span><span class="dim" title="' + esc(p.reason) + '">' + esc(p.reason) + "</span></div>").join("") + "</div>" : "";
+    return '<div class="modal" id="modal"><div class="dlg wide"><h3>AgentTeams 设置</h3>' +
+      '<section class="dsec"><h4>当前使用的 Agent</h4>' + now + effLine + "</section>" +
+      '<section class="dsec"><h4>成员用哪个模型</h4><div class="pv-list">' + list + "</div>" + na + "</section>" +
+      '<section class="dsec"><h4>常规</h4><div class="dgrid">' +
+      '<label class="dcol wide2"><span>工作目录</span><input id="sWs" placeholder="' + esc((S.info && S.info.workspace) || "") + '" value="' + esc(s.workspace) + '" /><span class="dim">成员读写文件、执行命令都限定在这个目录里；留空 = 用 M-Harness 配置里的 workspace。当前：' + esc((S.info && S.info.workspace) || "") + "</span></label>" +
+      '<label class="dcol"><span>同时干活的成员数</span><input id="sPar" type="number" min="1" max="16" value="' + esc(s.maxParallel) + '" /></label>' +
+      '<label class="dcol"><span>每轮最多步数</span><input id="sSteps" type="number" min="1" max="100" value="' + esc(s.maxSteps) + '" /></label></div></section>' +
+      '<details class="dsec"' + (s.route ? " open" : "") + "><summary>自定义路由（可选，填了就覆盖上面的选择）</summary>" +
+      '<div class="dgrid">' +
+      '<label class="dcol wide2"><span>接口地址</span><input id="rUrl" placeholder="https://api.deepseek.com" value="' + esc(s.route ? s.route.baseURL : "") + '" /></label>' +
+      '<label class="dcol"><span>模型</span><input id="rModel" value="' + esc(s.route ? s.route.model : "") + '" /></label>' +
+      '<label class="dcol"><span>key</span><input id="rKey" type="password" placeholder="' + (s.route && s.route.hasKey ? "已保存，留空不改" : "") + '" /></label></div>' +
+      '<div class="dim">key 以明文存在插件数据目录里，只用来请求你填的接口地址，不会显示在界面里。</div></details>' +
       '<div class="acts"><button type="button" id="sCancel">取消</button><button type="button" id="sSave" class="primary">保存</button></div></div></div>';
   }
 
@@ -265,7 +289,8 @@
     $("modal").onclick = e => { if (e.target === $("modal")) { S.dlg = null; paint(); } };
     $("sSave").onclick = () => {
       const url = $("rUrl").value.trim();
-      const patch = { workspace: $("sWs").value.trim(), maxParallel: Number($("sPar").value) || 4, maxSteps: Number($("sSteps").value) || 30, route: url ? { provider: "custom", model: $("rModel").value.trim(), baseURL: url, apiKey: $("rKey").value } : null };
+      const pv = document.querySelector('input[name="pv"]:checked');
+      const patch = { provider: pv ? pv.value : "", workspace: $("sWs").value.trim(), maxParallel: Number($("sPar").value) || 4, maxSteps: Number($("sSteps").value) || 30, route: url ? { provider: "custom", model: $("rModel").value.trim(), baseURL: url, apiKey: $("rKey").value } : null };
       rpc("at/settings/set", patch).then(() => { S.dlg = null; return refresh(true); }).catch(e => { S.err = e.message; paint(); });
     };
   }

@@ -9,7 +9,7 @@ const { serve, settings: openSettings, dataDir, harnessHome, harnessConfig } = r
 const { Store, CAPTAIN, USER } = require("./state.cjs");
 const { Scheduler } = require("./scheduler.cjs");
 const { captainTools } = require("./tools.cjs");
-const { providers } = require("./llm.cjs");
+const { providers, describeProviders, resolveRoute } = require("./llm.cjs");
 
 const VERSION = require("../manifest.json").version;
 const prefs = openSettings("settings.json");
@@ -46,6 +46,32 @@ const teamView = (t, extra = true) => {
   }
   return base;
 };
+
+/** 最近一次运行用的提供方（读 trace 目录里最新那个文件的 run_start），读不到就是空 */
+function latestProvider() {
+  try {
+    const home = harnessHome();
+    const dir = path.resolve(home || ".", String(harnessConfig(home).traceDir || ".traces"));
+    let best = null;
+    for (const f of fs.readdirSync(dir)) {
+      if (!f.endsWith(".jsonl")) continue;
+      const st = fs.statSync(path.join(dir, f));
+      if (!best || st.mtimeMs > best.t) best = { f, t: st.mtimeMs };
+    }
+    if (!best) return "";
+    const fd = fs.openSync(path.join(dir, best.f), "r");
+    const buf = Buffer.alloc(8192);
+    const n = fs.readSync(fd, buf, 0, buf.length, 0);
+    fs.closeSync(fd);
+    for (const line of buf.toString("utf8", 0, n).split("\n")) {
+      const m = /"type":"run_start"[^}]*?"provider":"([^"]+)"/.exec(line);
+      if (m) return m[1];
+    }
+  } catch {
+    // 没有 trace 目录就算了
+  }
+  return "";
+}
 
 const redactRoute = r => (r ? { provider: r.provider || "", model: r.model || "", baseURL: r.baseURL || "", hasKey: !!r.apiKey } : null);
 
@@ -104,7 +130,18 @@ const methods = {
   },
   "at/settings": async () => {
     const s = getSettings();
-    return { workspace: s.workspace || "", route: redactRoute(s.route), maxParallel: s.maxParallel, maxSteps: s.maxSteps, providers: providers().list.map(p => ({ name: p.name, protocol: p.protocol, model: p.model, hasKey: !!p.apiKey, baseURL: p.baseURL })) };
+    const all = describeProviders();
+    const recent = latestProvider();
+    const curName = recent && all.items.some(p => p.name === recent) ? recent : all.defaultName;
+    const cur = all.items.find(p => p.name === curName) || null;
+    let effective;
+    try {
+      const r = resolveRoute(s);
+      effective = { ok: true, provider: r.provider, model: r.model, protocol: r.protocol };
+    } catch (e) {
+      effective = { ok: false, error: String((e && e.message) || e) };
+    }
+    return { workspace: s.workspace || "", route: redactRoute(s.route), maxParallel: s.maxParallel, maxSteps: s.maxSteps, provider: s.provider || "", all: all.items, defaultName: all.defaultName, current: cur ? { ...cur, recent: !!recent && curName === recent } : null, effective, providers: providers().list.map(p => ({ name: p.name, protocol: p.protocol, model: p.model, hasKey: !!p.apiKey, baseURL: p.baseURL })) };
   },
   "at/settings/set": async p => {
     const cur = prefs.get();
@@ -112,6 +149,7 @@ const methods = {
     if (p && "workspace" in p) patch.workspace = String(p.workspace || "").trim() || undefined;
     if (p && "maxParallel" in p) patch.maxParallel = Math.max(1, Math.min(Number(p.maxParallel) || 4, 16));
     if (p && "maxSteps" in p) patch.maxSteps = Math.max(1, Math.min(Number(p.maxSteps) || 30, 100));
+    if (p && "provider" in p) patch.provider = String(p.provider || "").trim() || undefined;
     if (p && "route" in p) {
       const r = p.route || {};
       const old = cur.route || {};

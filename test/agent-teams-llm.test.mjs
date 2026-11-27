@@ -139,6 +139,22 @@ describe("agent-teams：模型地址和协议", () => {
     await p.call("at/settings/set", { workspace: ws });
     const info = await p.call("at/settings");
     assert.deepEqual(info.providers.map(x => [x.name, x.protocol, x.hasKey]), [["claude", "anthropic", true]]);
+    // 设置页要认出当前在用的 Agent：Cursor 是默认提供方，但成员用不了，要说清原因并给出实际会用的
+    assert.deepEqual(info.all.map(x => [x.name, x.usable]), [["cursor", false], ["codex", false], ["claude", true]]);
+    assert.match(info.all[0].reason, /Cursor/);
+    assert.equal(info.current.name, "cursor");
+    assert.equal(info.current.usable, false);
+    assert.equal(info.current.recent, false);
+    assert.deepEqual([info.effective.ok, info.effective.provider], [true, "claude"]);
+    // 最近一次运行用的提供方（读 trace 里的 run_start）
+    fs.mkdirSync(path.join(home, ".traces"), { recursive: true });
+    fs.writeFileSync(path.join(home, ".traces", "r.jsonl"), JSON.stringify({ ts: Date.now(), runId: "r", event: { type: "run_start", runId: "r", provider: "codex", input: "hi" } }) + "\n");
+    const info2 = await p.call("at/settings");
+    assert.deepEqual([info2.current.name, info2.current.recent], ["codex", true]);
+    // 手动选成员用的提供方
+    const info3 = await p.call("at/settings/set", { provider: "claude" });
+    assert.equal(info3.provider, "claude");
+    assert.equal((await p.call("at/settings/set", { provider: "" })).provider, "");
 
     await p.tool("agent_teams_create", { name: "claude-team", members: [{ name: "alice" }], tasks: [{ subject: "读 a.txt", assignee: "alice" }] });
     await p.tool("agent_teams_approve", { teamId: "claude-team" });

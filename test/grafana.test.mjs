@@ -4,6 +4,9 @@ import { after, before, describe, it } from "node:test";
 import { launch } from "./helpers.mjs";
 
 const TOKEN = "glsa_test_token_value_ok";
+const USER = "alice";
+const PASS = "s3cret-pw!";
+const B64 = Buffer.from(`${USER}:${PASS}`).toString("base64");
 let mode = "ok";
 let server;
 let base = "";
@@ -27,7 +30,8 @@ before(async () => {
       return;
     }
     if (p === "/api/health") return send(200, { database: "ok", version: "11.2.0" });
-    if ((req.headers.authorization || "") !== "Bearer " + TOKEN) return send(401, { message: "Unauthorized " + (req.headers.authorization || "") });
+    const okAuth = [`Bearer ${TOKEN}`, `Basic ${Buffer.from(`${USER}:${PASS}`).toString("base64")}`];
+    if (!okAuth.includes(req.headers.authorization || "")) return send(401, { message: "Unauthorized " + (req.headers.authorization || "") });
     if (p === "/api/org") return send(200, { id: 1, name: "Main Org" });
     if (p === "/api/search") {
       const q = (u.searchParams.get("query") || "").toLowerCase();
@@ -130,6 +134,63 @@ describe("grafana", { concurrency: 1 }, () => {
     assert.ok(tools.tools.every(t => t.annotations.readOnlyHint === true));
     await p.call("gf/disconnect");
     assert.equal((await p.call("gf/status")).hasToken, false);
+  });
+
+  it("没有令牌时用账号 + 密码（HTTP Basic）：能连、能查、密码不回传；填错的不保存且报错不带密码", async () => {
+    const p = await start();
+    await setMode("ok");
+    await assert.rejects(p.call("gf/connect", { url: base, username: USER, password: "wrong-password" }), e => {
+      assert.match(e.message, /账号或密码不对/);
+      assert.ok(!e.message.includes("wrong-password") && !e.message.includes(PASS) && !e.message.includes(B64));
+      return true;
+    });
+    assert.equal((await p.call("gf/status")).hasToken, false, "验证失败不保存");
+    await assert.rejects(p.call("gf/connect", { url: base, username: "a:b", password: PASS }), /账号格式/);
+    await assert.rejects(p.call("gf/connect", { url: base, username: USER, password: "" }), /密码格式/);
+    await assert.rejects(p.call("gf/connect", { url: base }), /令牌，或者账号和密码/);
+    await assert.rejects(p.call("gf/connect", { url: "http://example.com", username: USER, password: PASS }), /https/, "公网地址不能用 http 发密码");
+    const ok = await p.call("gf/connect", { url: base, username: USER, password: PASS });
+    assert.equal(ok.org, "Main Org");
+    assert.equal(ok.authMode, "basic");
+    assert.equal(ok.username, USER);
+    assert.ok(!JSON.stringify(ok).includes(PASS));
+    const st = await p.call("gf/status");
+    assert.equal(st.connected, true);
+    assert.equal(st.authMode, "basic");
+    assert.ok(!JSON.stringify(st).includes(PASS) && !JSON.stringify(st).includes(B64));
+    // 账号没变、密码留空：沿用已保存的密码
+    assert.equal((await p.call("gf/connect", { url: base, username: USER, password: "" })).org, "Main Org");
+    // 后续查询都带着 Basic 凭据
+    assert.deepEqual((await p.call("gf/dashboards", { query: "cpu" })).items.map(d => d.uid), ["abc"]);
+    assert.equal((await p.call("gf/alerts")).items[0].name, "HighCPU");
+    const t = await p.tool("grafana_status", {});
+    assert.match(t.text, /已连接/);
+    assert.ok(!t.text.includes(PASS) && !t.text.includes(B64));
+    // 换成令牌：账号密码被清掉；断开：全部清掉
+    const tok = await p.call("gf/connect", { url: base, token: TOKEN });
+    assert.equal(tok.authMode, "token");
+    assert.equal(tok.username, "");
+    await p.call("gf/connect", { url: base, username: USER, password: PASS });
+    await p.call("gf/disconnect");
+    const gone = await p.call("gf/status");
+    assert.equal(gone.hasToken, false);
+    await assert.rejects(p.call("gf/dashboards", {}), /还没有连接/);
+  });
+
+  it("地址里粘贴了仪表盘 / 文件夹 / 告警页面：只取 Grafana 的根地址（子路径保留）", async () => {
+    const p = await start();
+    for (const [pasted, want] of [
+      [base + "/dashboards/f/dfvpl7wfhawhsd/", base],
+      [base + "/d/abc/cpu?orgId=1&from=now-6h", base],
+      [base + "/alerting/list", base],
+      [base + "/grafana/d/abc/cpu", base + "/grafana"],
+      [base + "/grafana/dashboards", base + "/grafana"],
+      [base + "/grafana", base + "/grafana"],
+    ]) {
+      const s = await p.call("gf/connect", { url: pasted, token: TOKEN });
+      assert.equal(s.url, want, pasted);
+      assert.equal(s.org, "Main Org", pasted);
+    }
   });
 
   it("本机 http 以外的回环地址会去连，而不是被当成公网拒掉", async () => {

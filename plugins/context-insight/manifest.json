@@ -1,8 +1,8 @@
 {
   "id": "context-insight",
   "name": "Context Insight",
-  "version": "0.3.1",
-  "description": "上下文洞察：读取 M-Harness 的 trace，提供洞察总览（KPI、7 天用量、热力图、技能 / 工具 / 命令排行、会话卡片）和单个会话的 Context 详情（构成、走势、压缩、文件、命令、成本估算），支持中 / 英文，也给 AI 提供统计工具。",
+  "version": "0.4.0",
+  "description": "上下文洞察：读取 M-Harness 的 trace，提供洞察总览（KPI、7 天用量、热力图、技能 / 工具 / 命令排行、会话卡片）和单个会话的分步 Context 视图（统计、Token / 耗时、当前上下文、时间线、上下文浏览器、事件、文件、命令），支持中 / 英文，也给 AI 提供统计工具。",
   "publisher": "M-Market",
   "license": "Apache-2.0",
   "homepage": "https://github.com/1316584746/M-Market",
@@ -26,11 +26,11 @@
   "localizations": {
     "zh-CN": {
       "name": "上下文洞察",
-      "description": "读取 M-Harness 的 trace，提供洞察总览（KPI、7 天用量、热力图、技能 / 工具 / 命令排行、会话卡片）和单个会话的 Context 详情（构成、走势、压缩、文件、命令、成本估算），支持中 / 英文，也给 AI 提供统计工具。"
+      "description": "读取 M-Harness 的 trace，提供洞察总览（KPI、7 天用量、热力图、技能 / 工具 / 命令排行、会话卡片）和单个会话的分步 Context 视图（统计、Token / 耗时、当前上下文、时间线、上下文浏览器、事件、文件、命令），支持中 / 英文，也给 AI 提供统计工具。"
     },
     "en": {
       "name": "Context Insight",
-      "description": "Reads M-Harness traces: an insights overview (KPIs, 7-day usage, heatmap, skill / tool / command rankings, session cards) and a per-session Context view (composition, trend, compaction, files, commands, cost estimate). Bilingual, and exposes stats tools to the AI."
+      "description": "Reads M-Harness traces: an insights overview (KPIs, 7-day usage, heatmap, skill / tool / command rankings, session cards) and a per-session step-by-step Context view (stats, token / timing, live context, timeline, context browser, events, files, commands). Bilingual, and exposes stats tools to the AI."
     }
   },
   "tags": ["context", "trace", "token", "insight", "cost"]

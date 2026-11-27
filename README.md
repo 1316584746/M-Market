@@ -8,11 +8,11 @@
 [![license](https://img.shields.io/github/license/1316584746/M-Market)](LICENSE)
 [![stars](https://img.shields.io/github/stars/1316584746/M-Market?style=flat)](https://github.com/1316584746/M-Market)
 
-M-Harness 里的**插件市场**，也是 M-Harness 的**官方插件仓库**。浏览、搜索、一键安装。
+M-Harness 的**官方插件仓库**：DBX 格式的插件包和目录，在 M-Harness 的「插件」页里一键安装。
 
 ## 安装
 
-M-Harness 首次启动时已经预置了这个仓库（「设置 → 插件仓库」里叫「M-Harness 官方插件」）。打开「插件」页，找到 **插件市场** 点安装；装好后用它去装别的插件。
+M-Harness 首次启动时已经预置了这个仓库（「设置 → 插件仓库」里叫「M-Harness 官方插件」）。打开「插件」页，找到想要的插件点安装。
 
 没有预置的话，在「插件仓库」里手动添加：
 
@@ -28,10 +28,9 @@ https://raw.githubusercontent.com/1316584746/M-Market/HEAD/catalog/index.json
 
 | 插件 | 做什么 | 给 AI 的工具 |
 |---|---|---|
-| **插件市场**（`market`） | 多来源目录、搜索 / 分类 / 排序、一键安装 / 更新 / 卸载、收藏、分组、备注、主题页、备份还原、诊断日志 | `market_search` `market_installed` `market_install` |
 | **GitHub**（`github`） | 仓库、文件浏览与编辑提交、Issues、Pull Requests（diff / 审查 / 合并）、Actions、Releases、分支；**含写操作** | 8 个只读 + 10 个写（`github_issue_create` `github_pull_merge` `github_file_write` …） |
 | **MemSearch 长期记忆**（`memsearch`） | 记忆存成 Markdown，离线关键词（BM25）检索，可挂载自己的笔记目录 | `memory_search` `memory_recent` `memory_add` |
-| **上下文洞察**（`context-insight`） | 读 M-Harness 的 trace：token 走势、上下文构成、压缩事件、工具输出占用 | `context_runs` `context_stats` |
+| **上下文洞察**（`context-insight`） | 读 M-Harness 的 trace：洞察总览，以及单个会话的分步上下文（统计、Token / 耗时拆分、当前上下文、时间线、上下文浏览器、事件、文件、命令；续接的 Cursor 运行合成一个对话） | `context_runs` `context_stats` |
 | **billion-context**（`billion-context`） | 管理 [billion-context](https://github.com/ranxianglei/billion-context) 压缩代理：安装 / 启动 / 停止，换算各模型提供方的代理地址 | — |
 | **DSH-better-sidebar**（`better-sidebar`） | 文件树、查看 / 编辑（语法高亮、Markdown 预览）、文件名和内容搜索、Git 状态 / diff / 暂存、Git Graph 和提交详情、命令面板（一次跑一条命令，无 PTY） | — |
 | **Grafana**（`grafana`） | 只读连接你自己的 Grafana：组织与健康状态、正在触发的告警、仪表盘搜索和面板列表 | `grafana_status` `grafana_alerts` `grafana_dashboards` `grafana_dashboard` |
@@ -39,25 +38,6 @@ https://raw.githubusercontent.com/1316584746/M-Market/HEAD/catalog/index.json
 | **AgentTeams**（`agent-teams`） | 多 Agent 团队协作：AI 当队长，组好带依赖的任务和持久成员；批准后成员自动领任务、互发消息，页面里看进度、任务依赖图、成员实时动态，并逐条确认成员的写文件 / 执行命令；可给任务加质量门（合同、完成证据、评审不过自动修复 + 复审） | 14 个 `agent_teams_*`（`create` `approve` `edit_plan` `add_member` `remove_member` `create_task` `reassign_task` `claim_task` `update_task` `amend_task` `send_message` `status` `resume` `delete`） |
 
 八个插件都是 **一个包三个系统通用**（Windows / macOS / Linux）：后台程序是 Node 脚本（`.cjs`），由 M-Harness 自带的 Node 运行，不用按系统编译。
-
-## 插件市场能做什么
-
-- **浏览与搜索**：同时读官方目录和社区插件索引；分类胶囊带数量，按星标 / 最近更新 / 名称排序，类型和来源筛选；「最近更新」横条
-- **一键安装 / 更新 / 卸载**（DBX 插件）：安装前显示它申请的权限；下载后核对目录里的 sha256 和包内 `checksums.json`，对不上不安装；只允许目录所在站点和几个常见托管站下载
-- **截图**：目录里写了截图就直接用；没写就去插件仓库的 README 里找（只认 GitHub 托管的图，徽章和别的站的图会丢掉），在详情里轮播，点图放大
-- **收藏、分组、备注**：分组可以重命名 / 删除；备注能被搜到；全部只存在本机
-- **主题页**：把名称或关键词里带「主题 / 皮肤 / theme / skin」的插件单独列出来
-- **备份与还原**：导出成可读的 JSON，或同步到 WebDAV、私有 Gist；还原是「合并」（备份之后新增的不会丢），也可以选覆盖
-- **导出日志**：版本、来源状态、已装插件，路径和令牌已遮掉，不会发到任何地方
-- **AI 工具**：`market_search` / `market_installed` / `market_install`
-
-### 已知限制（诚实说明）
-
-- **评论**：插件窗口里没法嵌入 giscus 评论区（沙箱不允许嵌入外部页面）。「评论」按钮给出的是该插件 GitHub 仓库的 Discussions / Issues 链接，复制到浏览器打开。
-- **社区索引里的插件只能浏览**：M-Harness 没开放安装接口，市场是自己下载、校验、解压到 `plugins/` 目录的，只会装 DBX 包。其它格式的插件请到 M-Harness 自带的「插件中心」安装。
-- **屏蔽与全部更新**：卡片「···」里可以屏蔽不想再看到的插件（在「已屏蔽」里找回）；「已安装」里有更新时一键「全部更新」（逐个校验，一个失败不影响其他；市场自己跳过，要单独更新）
-- **没有的**：下载量统计、兼容性筛选、热禁用 / 启用、后台更新提醒（只在卡片上标「有更新」）、加载顺序与冲突诊断、GitHub 加速线路、定时自动备份。
-- **卡片上的截图**只有目录里写了 `screenshots` 的插件才有；README 里找到的图只在详情里显示（逐个插件拉 README 太慢，也费流量）。
 
 ## 网站
 
@@ -71,7 +51,7 @@ https://raw.githubusercontent.com/1316584746/M-Market/HEAD/catalog/index.json
 - 下载只能是 https（本机地址除外），并且只能来自目录所在站点或 `raw.githubusercontent.com` / `github.com` / `objects.githubusercontent.com` / `cdn.jsdelivr.net` / `dl.dbxio.com`
 - 插件的界面跑在沙箱 iframe 里，网络访问只放行清单里用 `host.network:` 声明过的域名
 - 插件申请的权限会在安装前原样展示
-- **令牌和密码是明文存的**：市场的 WebDAV 密码 / Gist 令牌、GitHub 插件的 Personal Access Token、Grafana 插件的服务账号令牌、modsearch 的各引擎 API key、AgentTeams 里你自己填的自定义模型路由 key，都明文放在插件自己的数据目录里（沙箱里没有系统钥匙串）。请用最小权限的细粒度令牌。备份文件里不含它们。
+- **令牌和密码是明文存的**：GitHub 插件的 Personal Access Token、Grafana 插件的服务账号令牌 / 账号密码、modsearch 的各引擎 API key、AgentTeams 里你自己填的自定义模型路由 key，都明文放在插件自己的数据目录里（沙箱里没有系统钥匙串）。请用最小权限的细粒度令牌。备份文件里不含它们。
 - GitHub 插件的 AI 写操作工具会真的改你的仓库（合并 PR、提交文件、发 Release 等），不想让 AI 动手就别在「让 AI 使用插件」里勾上它
 - 收录不等于背书：插件都是第三方代码，只装你信任的作者的
 
@@ -80,8 +60,8 @@ https://raw.githubusercontent.com/1316584746/M-Market/HEAD/catalog/index.json
 ## 提交你的插件
 
 - **官方仓库收录**：欢迎 PR 新插件。按下面「写一个新插件」做好，`node scripts/pack.mjs` 打包并提交，开 PR 时用仓库里的模板。
-- **放在自己的仓库**：做一个 DBX 目录（`catalog/index.json`，格式见本仓库），在市场的「备份与来源」里把地址加成一个来源，就能被别人搜到、安装。
-- Bug 请提 [issue](https://github.com/1316584746/M-Market/issues)，附上市场右上角「导出日志」的内容，定位会快很多。
+- **放在自己的仓库**：做一个 DBX 目录（`catalog/index.json`，格式见本仓库），在 M-Harness 的「设置 → 插件仓库」里把地址加成一个仓库，就能安装。
+- Bug 请提 [issue](https://github.com/1316584746/M-Market/issues)，附上插件版本和复现步骤，定位会快很多。
 
 ## 目录结构
 
@@ -110,7 +90,7 @@ test/                   后台程序、网站目录合并的行为测试
 node scripts/pack.mjs           # 打包全部插件，更新 catalog/index.json
 node scripts/pack.mjs --check   # 校验包和目录与源码一致（CI 用）
 node --test test/*.test.mjs     # 跑测试（解开 packages/ 里真正发布的包来测）
-node scripts/dev-ui.mjs market  # 在浏览器里调市场界面（github / 其它插件 id 同理）
+node scripts/dev-ui.mjs github  # 在浏览器里调某个插件的界面（换成其它插件 id 同理）
 ```
 
 改了插件源码后：升 `manifest.json` 的 `version` → `node scripts/pack.mjs` → 提交源码、`packages/`、`catalog/`。版本号不升的话，已经装了的用户不会收到更新。
@@ -133,7 +113,6 @@ node scripts/dev-ui.mjs market  # 在浏览器里调市场界面（github / 其�
 - 上下文洞察：参考公开的同类上下文分析工具的产品思路，代码完全为 M-Harness 的 trace 格式重写。只有 trace 里有的数据：没有缓存命中率和 Agent 父子网络；token 数模型返回了就用真实值，否则估算；费用按「设置」里各模型 / Agent 提供方对应的模型计价（见插件设置）。
 - billion-context：只是管理器，不含它的代码。使用它须遵守其许可证的「产品出处标注」条款，插件界面底部和 `NOTICE.md` 已标注。
 - DSH-better-sidebar：名称沿用 dsh market 里的 [DSH-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar)（MIT），产品形态参考它，代码重新编写。**没有**终端、侧边对话、任务页（子代理拓扑、后台任务）、按会话独立的布局和 `ctx.betterSidebar` 扩展服务：这些依赖 DSH 的网页、会话和终端服务，M-Harness 的插件宿主没有。命令面板是「一次跑一条命令」的简化版，没有 PTY，跑不了需要交互的全屏程序（所以 manifest 多声明了 `process.exec` 权限）。
-- 插件市场：功能范围和限制见上面「插件市场能做什么」和「已知限制」。
 - GitHub：直接调 GitHub REST API。
 - Grafana：只调用用户自己的 Grafana HTTP API（组织、告警、仪表盘、注释），只读。不含 Grafana 的代码；Grafana 本体是 AGPL-3.0。
 

@@ -68,8 +68,31 @@ function providers() {
   return { list: out, defaultName: cfg.defaultProvider };
 }
 
+/** M-Harness 配置里的全部提供方（含 cursor-sdk / 命令行 Agent），带「成员能不能用、为什么不能、key 缺在哪」 */
+function describeProviders() {
+  const cfg = harnessConfig(harnessHome());
+  const items = [];
+  for (const [name, p] of Object.entries(cfg.providers || {})) {
+    if (!p) continue;
+    const env = (/\$\{([A-Z0-9_]+)\}/i.exec(String(p.apiKey || "")) || [])[1] || "";
+    const apiKey = expandEnv(p.apiKey).trim();
+    const it = { name, type: String(p.type || ""), model: String(expandEnv(p.model) || p.preset || "").trim(), usable: false, reason: "", hasKey: !!apiKey, keyEnv: !apiKey ? env : "", baseURL: "", protocol: "" };
+    if (USABLE.has(p.type)) {
+      const ep = normalizeEndpoint(p.type, expandEnv(p.baseURL));
+      it.baseURL = ep.baseURL;
+      it.protocol = ep.protocol;
+      if (ep.baseURL) it.usable = true;
+      else it.reason = "没有 baseURL";
+    } else if (p.type === "cursor-sdk") it.reason = "Cursor 自带一套工具循环，不是模型接口，成员（插件自己跑的模型循环）没法用它";
+    else if (p.type === "cli") it.reason = "命令行 Agent 不是模型接口，成员没法用它";
+    else it.reason = "这种提供方成员用不了";
+    items.push(it);
+  }
+  return { items, defaultName: cfg.defaultProvider || "" };
+}
+
 /**
- * 找一条能用的路由。优先级：成员自己指定的 provider / model > 插件设置里写死的路由 > M-Harness 的默认提供方 > 第一个能用的。
+ * 找一条能用的路由。优先级：成员自己指定的 provider / model > 插件设置里写死的路由 > 插件设置里选的提供方 > M-Harness 的默认提供方 > 第一个能用的。
  * 不能用的提供方（cursor-sdk、命令行 Agent）不会被选中。
  */
 function resolveRoute(settings, want = {}) {
@@ -82,6 +105,8 @@ function resolveRoute(settings, want = {}) {
   } else if (fixed) {
     const ep = normalizeEndpoint(fixed.type, String(fixed.baseURL));
     base = { name: fixed.provider || "custom", protocol: ep.protocol, baseURL: ep.baseURL, apiKey: String(fixed.apiKey || ""), model: String(fixed.model || "") };
+  } else if (settings?.provider && list.some(p => p.name === settings.provider)) {
+    base = list.find(p => p.name === settings.provider);
   } else {
     base = list.find(p => p.name === defaultName && p.apiKey) || list.find(p => p.apiKey) || list.find(p => p.name === defaultName) || list[0];
   }
@@ -218,4 +243,4 @@ async function chat({ route, messages, tools, signal, timeoutMs = 180000, retryD
   throw new Error(redact(lastErr?.message || String(lastErr)));
 }
 
-module.exports = { providers, resolveRoute, chat, cleanBase, detectProtocol, normalizeEndpoint, toAnthropic };
+module.exports = { providers, describeProviders, resolveRoute, chat, cleanBase, detectProtocol, normalizeEndpoint, toAnthropic };

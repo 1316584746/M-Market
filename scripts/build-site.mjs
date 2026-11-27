@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
-const { parseCatalog } = require(path.join(ROOT, "plugins", "market", "bin", "catalog.cjs"));
+const { parseCatalog } = require(path.join(ROOT, "scripts", "catalog.cjs"));
 
 export const DEFAULT_UPSTREAMS = [{ name: "dsh-hub", url: "https://dshbazaar.io/api/index.json" }];
 export const CATALOG_URL = "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/catalog/index.json";
@@ -118,10 +118,10 @@ const T = {
     stars: "星标",
     category: "分类",
     installH: "怎么安装",
-    installDbx: "在 M-Harness 里打开「插件市场」插件，搜索它，点「安装」。安装前会显示它申请的权限。",
-    installDbxSite: "还没有插件市场？先看",
+    installDbx: "在 M-Harness 的「插件」页找到它，点「安装」。安装前会显示它申请的权限。",
+    installDbxSite: "还没添加这个仓库？先看",
     installPage: "安装页",
-    installDsh: "这是社区索引里的插件，M-Market 的市场只能浏览它。请到 M-Harness 自带的「插件中心」安装，装之前请自己看一眼源码。",
+    installDsh: "这是社区索引里的插件，这里只能浏览。请到 M-Harness 自带的「插件中心」安装，装之前请自己看一眼源码。",
     permsH: "申请的权限",
     noPerms: "没有声明权限",
     checksum: "安装包 sha256",
@@ -129,29 +129,25 @@ const T = {
     discuss: "讨论和问题在它的 GitHub 仓库里：",
     // 安装页
     installTitle: "安装 M-Market",
-    installIntro: "M-Harness 里的插件市场就是一个插件。装上它，其它插件都可以在里面搜索和安装。",
+    installIntro: "M-Market 是 M-Harness 的官方插件仓库：把目录地址加进 M-Harness，就能在「插件」页里安装这里的插件。",
     steps: [
-      "M-Harness 首次启动时已经预置了 M-Market 仓库：打开「插件」页，找到「插件市场」，点安装。",
+      "M-Harness 首次启动时已经预置了 M-Market 仓库（「设置 → 插件仓库」里叫「M-Harness 官方插件」）：打开「插件」页，找到想要的插件，点安装。",
       "没有预置的话：「设置 → 插件仓库」里添加下面这个目录地址，再回到「插件」页安装。",
       "第一次运行带后台程序的插件时，M-Harness 会让你确认信任；插件换了版本要重新确认。",
-      "装好后打开「插件市场」：搜索、看详情、安装或更新，装好的插件在「已安装」标签页里管理。",
+      "装好后在「插件」页里管理：更新、卸载都在那里。",
     ],
     catalogUrl: "目录地址",
     reqH: "要求",
     req: "M-Harness 要带「按脚本启动后台程序」的支持。更早的版本只能启动原生可执行文件，这些插件在那样的版本上装得上但跑不起来。",
     diffH: "已知限制",
     diff: [
-      "评论：插件窗口里没法嵌入评论区，只给出该插件 GitHub 仓库的讨论链接。",
       "社区索引里的插件只能浏览，不能在这里安装。",
-      "没有下载量统计、兼容性筛选、热禁用 / 启用、后台更新提醒。",
+      "网站上没有下载量统计和兼容性筛选。",
     ],
     // 隐私页
     privacyTitle: "隐私",
     privacy: [
       ["网站", "这是个纯静态网站，没有统计脚本、没有 Cookie，也不收集你的任何信息。部分插件卡片的头像图片来自 github.com，浏览器会因此访问 GitHub。"],
-      ["插件市场（M-Harness 里的插件）", "它只会访问：你在「备份与来源」里设置的目录地址（默认是 raw.githubusercontent.com 上的本仓库目录和社区插件索引站点 dshbazaar.io）、下载安装包的站点、GitHub（头像、README 里的截图）。**不会**向 M-Market 的作者上报任何使用数据。"],
-      ["保存在本机的东西", "收藏、分组、备注和来源列表存在插件自己的数据目录里。如果你配置了 WebDAV 或私有 Gist 同步，备份会上传到你自己指定的地方；WebDAV 密码和 GitHub 令牌以明文存在插件数据目录，备份文件里不含它们。"],
-      ["导出日志", "只在你点「导出日志」时生成，路径和令牌已遮掉，不会自动发送到任何地方。"],
       ["GitHub 插件", "它用你填的个人访问令牌直接调用 GitHub API，请求只发往 api.github.com（和你设置的 GitHub 企业版地址）。令牌以明文存在插件数据目录。"],
     ],
     notFound: "页面不存在",
@@ -195,38 +191,34 @@ const T = {
     stars: "Stars",
     category: "Category",
     installH: "How to install",
-    installDbx: "In M-Harness, open the Plugin Market plugin, search for it and click Install. The permissions it asks for are shown first.",
-    installDbxSite: "No Plugin Market yet? See the",
+    installDbx: "In M-Harness, open the Plugins page, find it and click Install. The permissions it asks for are shown first.",
+    installDbxSite: "Repository not added yet? See the",
     installPage: "install page",
-    installDsh: "This is a plugin from the community index; the M-Market market can only browse it. Install it from M-Harness's own plugin center, and read the source first.",
+    installDsh: "This is a plugin from the community index and can only be browsed here. Install it from M-Harness's own plugin center, and read the source first.",
     permsH: "Permissions it asks for",
     noPerms: "No permissions declared",
     checksum: "Package sha256",
     discussH: "Discussion",
     discuss: "Discussion and issues live in its GitHub repository: ",
     installTitle: "Install M-Market",
-    installIntro: "The plugin market inside M-Harness is just a plugin. Install it and you can search and install the rest from there.",
+    installIntro: "M-Market is the official plugin repository for M-Harness: add its catalog URL to M-Harness and install these plugins from the Plugins page.",
     steps: [
-      "M-Harness ships with the M-Market repository preset: open the Plugins page, find Plugin Market, click Install.",
+      "M-Harness ships with the M-Market repository preset (called \"M-Harness official plugins\" under Settings → Plugin repositories): open the Plugins page, find the plugin and click Install.",
       "If it is not preset: add the catalog URL below under Settings → Plugin repositories, then install from the Plugins page.",
       "The first time a plugin with a backend process runs, M-Harness asks you to trust it; a new version asks again.",
-      "Open Plugin Market: search, read details, install or update; installed plugins are managed in the Installed tab.",
+      "Installed plugins are managed on the Plugins page: update or uninstall there.",
     ],
     catalogUrl: "Catalog URL",
     reqH: "Requirement",
     req: "An M-Harness build that can start script backends. Older builds can only launch native executables: these plugins install there but will not run.",
     diffH: "Known limitations",
     diff: [
-      "Comments: a plugin window cannot embed a comment section; it only gives the repository's discussion links.",
       "Plugins from the community index are browse-only; they cannot be installed here.",
-      "No download statistics, compatibility filter, hot disable / enable or background update reminders.",
+      "No download statistics or compatibility filter on this site.",
     ],
     privacyTitle: "Privacy",
     privacy: [
       ["This website", "A purely static site: no analytics, no cookies, nothing collected. Some plugin cards load avatar images from github.com, so your browser contacts GitHub for those."],
-      ["Plugin Market (inside M-Harness)", "It only contacts: the catalog URLs you configure under \"Backup & sources\" (by default this repository's catalog on raw.githubusercontent.com and the community plugin index site dshbazaar.io), the host a package is downloaded from, and GitHub (avatars, README screenshots). It **never** reports usage data to M-Market's authors."],
-      ["What stays on your machine", "Favorites, groups, notes and the source list live in the plugin's own data directory. If you configure WebDAV or private Gist sync, backups go to the place you choose; the WebDAV password and GitHub token are stored in plain text in the plugin data directory, and backup files never contain them."],
-      ["Export log", "Only generated when you click Export log; paths and tokens are masked, and nothing is sent automatically."],
       ["GitHub plugin", "It calls the GitHub API with the personal access token you enter; requests only go to api.github.com (and a GitHub Enterprise URL if you set one). The token is stored in plain text in the plugin data directory."],
     ],
     notFound: "Page not found",

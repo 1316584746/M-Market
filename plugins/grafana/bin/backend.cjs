@@ -1,7 +1,8 @@
 "use strict";
 /**
  * Grafana 只读控制台：连接用户自己的 Grafana，查看组织 / 健康、告警、仪表盘和注释。
- * 服务账号令牌只存在插件数据目录里，不回传给界面，也不写进工具结果。
+ * 登录方式二选一：服务账号令牌，或者账号 + 密码（没有权限建令牌时用，走 HTTP Basic）。
+ * 令牌 / 密码只存在插件数据目录里，不回传给界面，也不写进工具结果。
  * 不跟随重定向，避免把令牌送到别的主机。不会修改告警规则或仪表盘。
  */
 const { serve, settings } = require("./rpc.cjs");
@@ -10,13 +11,22 @@ const VERSION = require("../manifest.json").version;
 const cfg = settings();
 const MAX_BODY = 2 * 1024 * 1024;
 
-function token() {
-  return String(cfg.get().token || "");
+/** 已保存的凭据：令牌，或账号 + 密码；都没有就是 null */
+function cred() {
+  const c = cfg.get();
+  if (c.token) return { kind: "token", token: String(c.token) };
+  if (c.user && c.password) return { kind: "basic", user: String(c.user), password: String(c.password) };
+  return null;
 }
+const authHeader = k => (k.kind === "token" ? "Bearer " + k.token : "Basic " + Buffer.from(k.user + ":" + k.password, "utf8").toString("base64"));
 
+/** 把凭据从文本里抹掉：令牌、密码，以及 Basic 的 base64 形式 */
 function scrub(s, extra) {
   let out = String(s ?? "");
-  for (const t of [token(), extra]) if (t) out = out.split(String(t)).join("***");
+  const k = cred();
+  const secrets = [extra];
+  if (k) secrets.push(...(k.kind === "token" ? [k.token] : [k.password, authHeader(k).slice(6)]));
+  for (const t of secrets) if (t) out = out.split(String(t)).join("***");
   return out;
 }
 
@@ -50,12 +60,21 @@ function checkBase(raw) {
   } catch {
     throw new Error("地址不合法");
   }
-  if (u.username || u.password) throw new Error("不要把账号密码写在地址里，令牌单独填写");
+  if (u.username || u.password) throw new Error("不要把账号密码写在地址里，在下面单独填写");
   if (u.protocol !== "https:" && u.protocol !== "http:") throw new Error("地址只支持 http 或 https");
   if (u.protocol === "http:" && !isPrivateHost(u.hostname)) throw new Error("公网地址请用 https；http 只允许本机或局域网");
   u.search = "";
   u.hash = "";
+  u.pathname = stripAppRoute(u.pathname);
   return u.toString().replace(/\/$/, "");
+}
+
+/** 从浏览器里复制的地址常常是 /dashboards/f/xxx、/d/xxx/名字、/alerting/list 这类页面：砍掉 Grafana 自己的页面路径，只留根（子路径如 /grafana 保留） */
+const APP_ROUTES = new Set(["d", "d-solo", "dashboards", "dashboard", "alerting", "explore", "login", "api", "admin", "org", "datasources", "plugins", "profile", "playlists", "library-panels", "connections", "a", "public-dashboards", "goto", "render", "live", "metrics", "swagger"]);
+function stripAppRoute(pathname) {
+  const parts = String(pathname || "/").split("/");
+  const at = parts.findIndex((p, i) => i > 0 && APP_ROUTES.has(p.toLowerCase()));
+  return at < 0 ? pathname : parts.slice(0, at).join("/") || "/";
 }
 
 function apiUrl(base, pathname, query) {
@@ -69,10 +88,10 @@ function apiUrl(base, pathname, query) {
   return root;
 }
 
-function httpError(status, data, pathname, tok) {
+function httpError(status, data, pathname, tok, kind) {
   const msg = data && typeof data.message === "string" ? scrub(data.message, tok) : "";
-  if (status === 401) return new GfError(status, "令牌无效或已过期");
-  if (status === 403) return new GfError(status, "令牌没有权限：" + (msg || "查看仪表盘和告警需要 Viewer"));
+  if (status === 401) return new GfError(status, kind === "basic" ? "账号或密码不对。如果这个 Grafana 只允许单点登录（公司账号 / OAuth），账号密码没法用于接口访问，需要请管理员开一个服务账号令牌" : "令牌无效或已过期");
+  if (status === 403) return new GfError(status, (kind === "basic" ? "这个账号没有权限：" : "令牌没有权限：") + (msg || "查看仪表盘和告警需要 Viewer"));
   if (status === 404) {
     const hint = pathname === "/api/org" ? "这个地址上没有 Grafana 的 /api/org。如果挂在子路径（例如 /grafana），请把子路径一起写上" : "找不到接口" + (msg ? "：" + msg : "");
     return new GfError(status, hint);
@@ -92,13 +111,13 @@ async function readJson(res) {
   }
 }
 
-async function call(base, tok, pathname, query) {
-  if (!tok) throw new Error("还没有连接：先到「连接」里填写地址和令牌");
+async function call(base, k, pathname, query) {
+  if (!k) throw new Error("还没有连接：先到「连接」里填写地址和令牌（或账号密码）");
   const u = apiUrl(base, pathname, query);
   let res;
   try {
     res = await fetch(u, {
-      headers: { accept: "application/json", authorization: "Bearer " + tok, "user-agent": "m-market-grafana/" + VERSION },
+      headers: { accept: "application/json", authorization: authHeader(k), "user-agent": "m-market-grafana/" + VERSION },
       redirect: "manual",
       signal: AbortSignal.timeout(15000),
     });
@@ -106,24 +125,26 @@ async function call(base, tok, pathname, query) {
     const name = e && e.name;
     throw new Error(name === "TimeoutError" || name === "AbortError" ? "连接 Grafana 超时" : "连不上 Grafana，请检查地址是否可达");
   }
-  if (res.status >= 300 && res.status < 400) throw new Error("Grafana 返回了重定向，已拒绝跟随，避免把令牌送到别的地址");
+  if (res.status >= 300 && res.status < 400) throw new Error("Grafana 返回了重定向，已拒绝跟随，避免把令牌 / 密码送到别的地址");
   const data = await readJson(res);
-  if (!res.ok) throw httpError(res.status, data, pathname, tok);
+  if (!res.ok) throw httpError(res.status, data, pathname, k.kind === "token" ? k.token : k.password, k.kind);
   return data;
 }
 
 function savedBase() {
   const url = cfg.get().url;
-  if (!url) throw new Error("还没有连接：先到「连接」里填写地址和令牌");
+  if (!url) throw new Error("还没有连接：先到「连接」里填写地址和令牌（或账号密码）");
   return checkBase(url);
 }
 
-const authed = (pathname, query) => call(savedBase(), token(), pathname, query);
+const authed = (pathname, query) => call(savedBase(), cred(), pathname, query);
 
-function shape(org, health, url) {
+function shape(org, health, url, k) {
   return {
     connected: true,
-    hasToken: true,
+    hasToken: true, // 名字沿用：表示已经存了凭据（令牌或账号密码）
+    authMode: k ? k.kind : "token",
+    username: k && k.kind === "basic" ? k.user : "",
     url,
     org: org && org.name != null ? String(org.name) : "",
     version: health && health.version != null ? String(health.version) : "",
@@ -133,19 +154,21 @@ function shape(org, health, url) {
 
 async function status() {
   const url = cfg.get().url ? checkBase(cfg.get().url) : "";
-  const hasToken = !!token();
+  const k = cred();
+  const hasToken = !!k;
+  const mode = k ? { authMode: k.kind, username: k.kind === "basic" ? k.user : "" } : {};
   if (!url || !hasToken) return { connected: false, hasToken, url };
   try {
-    const org = await call(url, token(), "/api/org");
+    const org = await call(url, k, "/api/org");
     let health = null;
     try {
-      health = await call(url, token(), "/api/health");
+      health = await call(url, k, "/api/health");
     } catch {
       health = null;
     }
-    return shape(org, health, url);
+    return shape(org, health, url, k);
   } catch (e) {
-    return { connected: false, hasToken: true, url, error: scrub(e.message) };
+    return { connected: false, hasToken: true, url, ...mode, error: scrub(e.message) };
   }
 }
 
@@ -155,23 +178,51 @@ function checkToken(raw) {
   return t;
 }
 
-async function connect({ url, token: incoming }) {
-  const nextUrl = checkBase(url);
-  const nextToken = checkToken(String(incoming || "").trim() || token());
-  const org = await call(nextUrl, nextToken, "/api/org");
+function checkUser(raw) {
+  const u = String(raw || "").trim();
+  if (!u || u.length > 256 || /[:\r\n\0]/.test(u)) throw new Error("账号格式不对：不能为空，也不能含冒号或换行");
+  return u;
+}
+
+function checkPassword(raw) {
+  const p = String(raw ?? "");
+  if (!p || p.length > 1024 || /[\r\n\0]/.test(p)) throw new Error("密码格式不对：不能为空，也不能含换行");
+  return p;
+}
+
+/** 这次提交里要用哪种凭据：填了账号就是账号密码，填了令牌就是令牌，都没填就沿用已保存的 */
+function pickCred({ token: incoming, username, password }) {
+  const saved = cred();
+  const user = String(username || "").trim();
+  if (user) {
+    // 账号没变、密码留空：沿用已保存的密码（界面从不拿到明文）
+    const pw = String(password ?? "") || (saved && saved.kind === "basic" && saved.user === user ? saved.password : "");
+    return { kind: "basic", user: checkUser(user), password: checkPassword(pw) };
+  }
+  const t = String(incoming || "").trim();
+  if (t) return { kind: "token", token: checkToken(t) };
+  if (!saved) throw new Error("请填写服务账号令牌，或者账号和密码");
+  return saved;
+}
+
+async function connect(p) {
+  const nextUrl = checkBase(p.url);
+  const k = pickCred(p);
+  const org = await call(nextUrl, k, "/api/org");
   if (!org || typeof org !== "object" || (org.name == null && org.id == null)) throw new Error("这个地址没有返回 Grafana 的组织信息");
   let health = null;
   try {
-    health = await call(nextUrl, nextToken, "/api/health");
+    health = await call(nextUrl, k, "/api/health");
   } catch {
     health = null;
   }
-  cfg.set({ url: nextUrl, token: nextToken });
-  return shape(org, health, nextUrl);
+  // 验证通过才保存；两种凭据只留一种
+  cfg.set(k.kind === "token" ? { url: nextUrl, token: k.token, user: "", password: "" } : { url: nextUrl, token: "", user: k.user, password: k.password });
+  return shape(org, health, nextUrl, k);
 }
 
 function disconnect() {
-  cfg.set({ url: "", token: "" });
+  cfg.set({ url: "", token: "", user: "", password: "" });
   return { connected: false, hasToken: false, url: "" };
 }
 

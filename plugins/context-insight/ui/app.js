@@ -36,9 +36,11 @@
   const CAT_NA = { tools: 1, injected: 1, reasoning: 1 };
   const REASON = { final: "完成", max_steps: "达到步数上限", error: "出错", aborted: "已中止", cancelled: "已取消" };
 
+  const SESS_STEP = 12;
   const S = {
+    sessOpen: lsGet("ci.sessOpen") !== "0", sessMax: SESS_STEP, grpShut: new Set(),
     tab: "insights", range: "7", from: "", to: "", day: "", heat: "tokens", bal: null, q: "", sort: "recent", group: "none", skill: "", tool: "", command: "",
-    ov: null, runs: null, name: "", detail: null, step: null, msgs: null, fleet: null, seq: 0, prefs: null,
+    ov: null, sessions: null, follow: true, name: "", detail: null, fleet: null, seq: 0, prefs: null,
   };
 
   // ───────── 格式化 ─────────
@@ -187,12 +189,15 @@
   }
 
   function balanceChip(b) {
-    if (!b || b.enabled === false || (!b.available && !b.failed)) return "";
-    if (!b.available) return '<button type="button" class="chip bal err" id="bal" title="' + esc(b.reason) + '">' + esc(t("DeepSeek 余额查询失败")) + "</button>";
+    if (!b || b.enabled === false) return "";
+    const who = b.label || b.provider || "";
+    // 当前提供方没有「用 key 查余额」的接口（Cursor / OpenAI / Anthropic 等）：给一个灰色小标签说明，不是报错
+    if (b.unsupported) return '<button type="button" class="chip bal dim" id="bal" title="' + esc(b.reason + "\n" + t("点击刷新")) + '">' + esc(b.provider + " · " + t("无余额接口")) + "</button>";
+    if (!b.available) return b.failed ? '<button type="button" class="chip bal err" id="bal" title="' + esc(b.reason) + '">' + esc(t("{0} 余额查询失败", who)) + "</button>" : "";
     const main = b.balances.find(x => x.currency === "CNY") || b.balances[0];
     const sy = main.currency === "CNY" ? "¥" : main.currency === "USD" ? "$" : main.currency + " ";
     const tip = b.balances.map(x => x.currency + " " + t("充值 {0} · 赠金 {1}", x.toppedUp.toFixed(2), x.granted.toFixed(2))).join("\n") + "\n" + t("点击刷新");
-    return '<button type="button" class="chip bal' + (b.usable ? "" : " err") + '" id="bal" title="' + esc(tip) + '">DeepSeek ' + esc(t("余额")) + " " + sy + main.total.toFixed(2) + "</button>";
+    return '<button type="button" class="chip bal' + (b.usable ? "" : " err") + '" id="bal" title="' + esc((b.provider ? b.provider + "\n" : "") + tip) + '">' + esc(who) + " " + esc(t("余额")) + " " + sy + main.total.toFixed(2) + "</button>";
   }
 
   function viewInsights() {
@@ -248,17 +253,32 @@
       box(t("插件工具"), rankTable(o.plugins || [], "tool", S.tool, t("这段时间没有调用插件工具（plugin__插件__工具）。")), "", sumTxt(tt.plugins, n => t("{0} 个工具", n), n => t("{0} 次", n))) + "</div>";
 
     // 会话列表
-    h += '<div class="sechead"><h2 class="sec">' + esc(t("会话")) + ' <span class="badge">' + o.total + "</span>" + (o.total > o.sessions.length ? ' <span class="dim">' + esc(t("仅显示前 {0} 个", o.sessions.length)) + "</span>" : "") + "</h2>" +
-      '<input id="q" class="search" type="search" placeholder="' + esc(t("搜索会话：内容 / 模型 / 名字")) + '" value="' + esc(S.q) + '" />' +
-      '<select id="group"><option value="none">' + esc(t("不分组")) + '</option><option value="provider">' + esc(t("按提供方分组")) + "</option></select>" +
-      '<div class="seg" id="sortSeg">' + [["recent", t("最近更新")], ["tokens", t("Token 总用量")], ["context", t("当前上下文")]].map(s =>
-        '<button type="button" data-s="' + s[0] + '" class="' + (S.sort === s[0] ? "on" : "") + '">' + esc(s[1]) + "</button>").join("") + "</div></div>";
+    // 会话很多：整块能折叠（记住上次的状态），默认只铺开前 SESS_STEP 张，其余点「显示更多」；按提供方分组时每组也能单独折叠
+    const open = S.sessOpen;
+    const shown = o.sessions.slice(0, S.sessMax);
+    h += '<div class="sechead"><button type="button" class="fold" id="sessFold" aria-expanded="' + open + '" title="' + esc(open ? t("折叠会话列表") : t("展开会话列表")) + '">' + (open ? "▾" : "▸") + '</button><h2 class="sec" id="sessTitle">' + esc(t("会话")) + ' <span class="badge">' + o.total + "</span>" + (o.total > o.sessions.length ? ' <span class="dim">' + esc(t("仅显示前 {0} 个", o.sessions.length)) + "</span>" : "") + "</h2>" +
+      (open
+        ? '<input id="q" class="search" type="search" placeholder="' + esc(t("搜索会话：内容 / 模型 / 名字")) + '" value="' + esc(S.q) + '" />' +
+          '<select id="group"><option value="none">' + esc(t("不分组")) + '</option><option value="provider">' + esc(t("按提供方分组")) + "</option></select>" +
+          '<div class="seg" id="sortSeg">' + [["recent", t("最近更新")], ["tokens", t("Token 总用量")], ["context", t("当前上下文")]].map(s =>
+            '<button type="button" data-s="' + s[0] + '" class="' + (S.sort === s[0] ? "on" : "") + '">' + esc(s[1]) + "</button>").join("") + "</div>"
+        : '<span class="dim sp">' + esc(t("已折叠")) + "</span>") + "</div>";
+    if (!open) return h;
     if (!o.sessions.length) h += empty(t("这段时间没有会话"), t("在 M-Harness 里跑一次任务，这里就会出现；目录不对可以到设置里修改 trace 目录。"));
-    else if (S.group === "provider") {
-      const groups = new Map();
-      o.sessions.forEach(s => { const g = (s.provider || "?") + (s.model ? " · " + s.model : ""); if (!groups.has(g)) groups.set(g, []); groups.get(g).push(s); });
-      groups.forEach((list, g) => { h += '<h4 class="grp">' + esc(g) + ' <span class="dim">' + list.length + '</span></h4><div class="cards">' + list.map(sessionCard).join("") + "</div>"; });
-    } else h += '<div class="cards">' + o.sessions.map(sessionCard).join("") + "</div>";
+    else {
+      if (S.group === "provider") {
+        const groups = new Map();
+        shown.forEach(s => { const g = (s.provider || "?") + (s.model ? " · " + s.model : ""); if (!groups.has(g)) groups.set(g, []); groups.get(g).push(s); });
+        groups.forEach((list, g) => {
+          const shut = S.grpShut.has(g);
+          h += '<h4 class="grp"><button type="button" class="fold sm" data-grp="' + esc(g) + '" aria-expanded="' + !shut + '">' + (shut ? "▸" : "▾") + "</button> " + esc(g) + ' <span class="dim">' + list.length + "</span></h4>" + (shut ? "" : '<div class="cards">' + list.map(sessionCard).join("") + "</div>");
+        });
+      } else h += '<div class="cards">' + shown.map(sessionCard).join("") + "</div>";
+      const rest = o.sessions.length - shown.length;
+      if (rest > 0 || S.sessMax > SESS_STEP) {
+        h += '<div class="more">' + (rest > 0 ? '<button type="button" id="sessMore">' + esc(t("显示更多（还有 {0} 个）", rest)) + "</button>" : "") + (S.sessMax > SESS_STEP ? '<button type="button" id="sessLess">' + esc(t("收起到前 {0} 个", SESS_STEP)) + "</button>" : "") + "</div>";
+      }
+    }
     return h;
   }
 
@@ -278,6 +298,12 @@
     view.querySelectorAll(".scard").forEach(b => { b.onclick = () => openSession(b.getAttribute("data-n")); });
     view.querySelectorAll("#heatSeg [data-h]").forEach(b => { b.onclick = () => { S.heat = b.getAttribute("data-h"); paint(); }; });
     view.querySelectorAll("#sortSeg [data-s]").forEach(b => { b.onclick = () => { S.sort = b.getAttribute("data-s"); loadOverview(); }; });
+    const fold = () => { S.sessOpen = !S.sessOpen; lsSet("ci.sessOpen", S.sessOpen ? "1" : "0"); paint(); };
+    if ($("sessFold")) $("sessFold").onclick = fold;
+    if ($("sessTitle")) $("sessTitle").onclick = fold;
+    if ($("sessMore")) $("sessMore").onclick = () => { S.sessMax += SESS_STEP * 2; paint(); };
+    if ($("sessLess")) $("sessLess").onclick = () => { S.sessMax = SESS_STEP; paint(); };
+    view.querySelectorAll("[data-grp]").forEach(b => { b.onclick = () => { const g = b.getAttribute("data-grp"); if (S.grpShut.has(g)) S.grpShut.delete(g); else S.grpShut.add(g); paint(); }; });
     const pset = $("pset"), group = $("group"), q = $("q");
     if (pset) pset.onclick = openSettings;
     bindBalance();
@@ -300,6 +326,7 @@
 
   function loadOverview(keepFocus) {
     const seq = ++S.seq;
+    S.sessMax = SESS_STEP; // 换了范围 / 筛选 / 搜索 / 排序，会话列表回到只显示前几张
     const p = { range: S.range, day: S.day, q: S.q, sort: S.sort, skill: S.skill, tool: S.tool, command: S.command };
     if (!S.day && S.from && S.to) { p.from = S.from; p.to = S.to; }
     return rpc("insights/overview", p).then(o => {
@@ -310,9 +337,16 @@
   }
 
   // ───────── Context 详情 ─────────
+  // 分步视图在 ctxview.js 里：这里只负责「选哪个会话、什么时候取数据」
+  const CX = window.CIContext.create({ t, esc, fmt, dur, when, pct, money, donut, box, none, empty, rpc, S, lrow, niceMax, CATS, CAT_NA, REASON, openSession });
+
   function openSession(name) {
-    S.name = name; S.detail = null; S.step = null; S.msgs = null; S.tab = "context";
+    if (name !== S.name) { S.detail = null; CX.reset(); }
+    S.name = name; S.tab = "context";
+    // 手动选了一个会话：只有选的正好是最新的才继续「跟着最新对话走」
+    S.follow = !!(S.sessions && S.sessions.length && S.sessions[0].name === name);
     paintTabs(); paint();
+    if (!S.sessions) loadSessions();
     loadDetail();
   }
 
@@ -322,51 +356,22 @@
     return rpc("session/get", { name }).then(d => {
       if (name !== S.name) return;
       S.detail = d;
-      S.step = d.trend.length ? d.trend[d.trend.length - 1].step : null;
       paint();
-      loadMsgs();
     }).catch(e => { if (name === S.name) view.innerHTML = fail(e); });
   }
 
-  function loadMsgs() {
-    if (!S.name || S.step == null) { S.msgs = []; return Promise.resolve(); }
-    const name = S.name, step = S.step;
-    S.msgs = null; paintMsgs();
-    return rpc("session/messages", { name, step }).then(m => { if (name === S.name && step === S.step) { S.msgs = m; paintMsgs(); } }).catch(e => { if (name === S.name && step === S.step) { S.msgs = []; $("msgs").innerHTML = fail(e); } });
-  }
-
-  function trendChart(d) {
-    const tr = d.trend;
-    if (!tr.length) return '<div class="dbx-hint">' + esc(t("这次运行没有模型调用记录。")) + "</div>";
-    const W = Math.max(720, tr.length * 26 + 60), H = 190, L = 44, B = 22, T = 14;
-    const peak = Math.max(1, ...tr.map(s => s.prompt + s.output));
-    const showLimit = d.contextLimit && peak >= d.contextLimit * 0.4;
-    const max = showLimit ? Math.max(peak, d.contextLimit) : peak * 1.1;
-    const slot = (W - L - 10) / tr.length, bw = Math.min(30, slot - 4);
-    const y = v => T + (H - T - B) * (1 - v / max);
-    let g = '<div class="scroll"><svg class="chart" viewBox="0 0 ' + W + " " + H + '" style="min-width:' + Math.min(W, 960) + 'px">';
-    [0, 0.5, 1].forEach(f => { g += '<line x1="' + L + '" x2="' + (W - 6) + '" y1="' + y(max * f) + '" y2="' + y(max * f) + '" stroke="currentColor" opacity=".12"/><text x="' + (L - 4) + '" y="' + (y(max * f) + 3) + '" text-anchor="end">' + fmt(max * f) + "</text>"; });
-    if (showLimit) g += '<line x1="' + L + '" x2="' + (W - 6) + '" y1="' + y(d.contextLimit) + '" y2="' + y(d.contextLimit) + '" stroke="#ef4444" stroke-dasharray="4 3" opacity=".7"/><text x="' + (W - 8) + '" y="' + (y(d.contextLimit) - 3) + '" text-anchor="end" fill="#ef4444">' + esc(t("上限 {0}", fmt(d.contextLimit))) + "</text>";
-    tr.forEach((s, i) => {
-      const x = L + i * slot + (slot - bw) / 2;
-      const yp = y(s.prompt), yt = y(s.prompt + s.output);
-      g += '<g class="sbar' + (S.step === s.step ? " on" : "") + '" data-step="' + s.step + '"><title>' + esc(t("第 {0} 步", s.step) + " · " + t("输入 {0} / 输出 {1}", fmt(s.prompt), fmt(s.output)) + " · " + dur(s.ms) + (s.estimated ? " · " + t("估算") : "")) + "</title>" +
-        '<rect class="hit" x="' + (x - 2) + '" y="' + T + '" width="' + (bw + 4) + '" height="' + (H - T - B) + '" fill="transparent"/>' +
-        '<rect x="' + x + '" y="' + yp + '" width="' + bw + '" height="' + Math.max(1, H - B - yp) + '" fill="#3b82f6" opacity="' + (s.estimated ? 0.55 : 1) + '"/>' +
-        '<rect x="' + x + '" y="' + yt + '" width="' + bw + '" height="' + Math.max(0, yp - yt) + '" fill="#10b981"/>' +
-        (s.trimmed ? '<path d="M' + (x + bw / 2) + " " + (T - 10) + "l5 8h-10z" + '" fill="#f59e0b"><title>' + esc(t("这一步之前发生过压缩")) + "</title></path>" : "") +
-        '<text x="' + (x + bw / 2) + '" y="' + (H - 8) + '" text-anchor="middle">' + s.step + "</text></g>";
-    });
-    return g + "</svg></div>" + '<div class="legend"><span><i style="background:#3b82f6"></i>' + esc(t("输入（上下文）")) + '</span><span><i style="background:#10b981"></i>' + esc(t("输出")) + '</span><span><i style="background:#f59e0b"></i>' + esc(t("压缩")) + "</span></div>";
-  }
-
-  function eventRow(e) {
-    const at = '<span class="dim">' + esc(when(e.ts)) + "</span> ";
-    if (e.type === "trim") return at + '<span class="ev trim">' + esc(t("压缩")) + "</span> " + esc(t("第 {0} 步后：{1} → {2} token，丢弃 {3} 条", e.step, fmt(e.before), fmt(e.after), e.dropped));
-    if (e.type === "blocked") return at + '<span class="ev bad">' + esc(t("拦截")) + "</span> " + esc(e.name || "") + " " + '<span class="dim">' + esc(e.reason || "") + "</span>";
-    if (e.type === "approval") return at + '<span class="ev ' + (e.approved ? "ok" : "bad") + '">' + esc(e.approved ? t("已批准") : t("已拒绝")) + "</span> " + esc(e.name || "");
-    if (e.type === "done") return at + '<span class="ev ' + (e.reason === "final" ? "ok" : "bad") + '">' + esc(t("结束")) + "</span> " + esc(t(REASON[e.reason] || e.reason || "")) + (e.error ? ' <span class="warn">' + esc(e.error) + "</span>" : "");
-    return at + '<span class="ev">' + esc(t("开始")) + "</span>";
+  function loadSessions() {
+    return rpc("session/list", { limit: 200 }).then(r => {
+      S.sessions = r;
+      // 默认看最新的对话（也就是你当前在用的那个）
+      if (r.length && (!S.name || S.follow)) {
+        if (S.name !== r[0].name) { S.detail = null; CX.reset(); }
+        S.name = r[0].name;
+      }
+      if (S.tab !== "context") return;
+      paint();
+      if (S.name && !S.detail) loadDetail();
+    }).catch(e => { S.sessions = []; if (S.tab === "context") view.innerHTML = fail(e); });
   }
 
   function miniTable(head, rows) {
@@ -375,104 +380,25 @@
   }
 
   function viewContext() {
-    const sel = '<div class="toolbar"><select id="runSel" class="grow">' +
-      (S.runs || []).map(r => '<option value="' + esc(r.name) + '"' + (r.name === S.name ? " selected" : "") + ">" + esc(when(r.startedAt || r.mtime) + " · " + (r.provider || "?") + " · " + (r.input || r.name).slice(0, 50)) + "</option>").join("") + "</select></div>";
-    if (!S.runs) return '<div class="dbx-hint pad">' + esc(t("加载中…")) + "</div>";
-    if (!S.runs.length) return empty(t("没有找到 trace 记录"), t("在 M-Harness 里跑一次任务，这里就会出现；目录不对可以到设置里修改 trace 目录。"));
-    if (!S.detail) return sel + '<div class="dbx-hint pad">' + esc(t("分析中…")) + "</div>";
-    const d = S.detail, st = d.stats, tk = d.tokens, tm = d.timing, cur = d.current;
-    const bad = d.reason && d.reason !== "final";
-    let h = sel + '<div class="head"><div class="h-t">' + esc(d.input || d.name) + '</div><div class="h-m">' + esc(d.provider || "?") + (d.model ? " · " + esc(d.model) : "") + (d.agent ? ' <span class="badge">Agent</span>' : "") + " · " + esc(when(d.startedAt)) + " · " + (d.reason ? '<span class="' + (bad ? "warn" : "ok") + '">' + esc(t(REASON[d.reason] || d.reason)) + "</span>" : esc(t("未结束"))) + (d.skipped ? ' · <span class="warn">' + esc(d.skipped) + "</span>" : "") + "</div></div>";
-    h += '<div class="cgrid">';
-
-    // 1 当前上下文
-    h += box(t("当前上下文"), cur
-      ? '<div class="big">' + fmt(cur.tokens) + (cur.estimated ? "~" : "") + ' <small>token</small></div>' +
-        (cur.pct != null ? '<div class="gauge"><i style="width:' + Math.min(100, cur.pct) + "%;background:" + (cur.pct > 85 ? "#ef4444" : cur.pct > 60 ? "#f59e0b" : "#10b981") + '"></i></div><div class="dim">' + esc(t("占上限 {0}（{1}）", Math.round(cur.pct) + "%", fmt(d.contextLimit))) + "</div>" : '<div class="dim">' + esc(t("未配置上下文上限")) + "</div>") +
-        stack(cur.comp, 8) + kv(t("消息数"), cur.msgCount)
-      : '<div class="dbx-hint">' + esc(t("没有模型调用记录。")) + "</div>");
-
-    // 2 Token 用量
-    h += box(t("Token 用量"),
-      '<div class="big">' + fmt(tk.billed) + " <small>" + esc(t("计费")) + "</small></div>" +
-      kv(t("输入"), fmt(st.input)) + kv(t("输出"), fmt(st.output)) + kv(t("模型调用"), st.steps) + kv(t("单次最大输入"), fmt(st.peakPrompt)) +
-      kv(t("缓存命中率"), none()) + (st.estimated ? '<div class="dim">' + esc(t("部分步骤没有真实用量，已按字数估算。")) + "</div>" : ""));
-
-    // 3 成本
-    h += box(t("成本估算"), st.cost != null
-      ? '<div class="big">' + esc(money(st.cost)) + "</div>" + kv(t("模型"), esc(d.model)) + kv(t("输入单价"), "$" + d.price.in + " / 1M") + kv(t("输出单价"), "$" + d.price.out + " / 1M") + (d.price.custom ? '<div class="dim">' + esc(t("使用你在设置里自定义的单价。")) + "</div>" : "") + (d.agentEstimate ? '<div class="dim">' + esc(t("这是外部 Agent：它不把 token 用量回传给 M-Harness，这里按你发给它的提示词和它的过程输出估算，不含它内部反复读取上下文的开销，实际花费通常更高。")) + "</div>" : "")
-      : '<div class="big">—</div><div class="dim">' + esc(d.model ? t("没有匹配到「{0}」的单价，可以在设置里添加。", d.model) : t("没有从配置里找到这个提供方的模型名，无法估算成本。")) + "</div>");
-
-    // 4 耗时
-    const wall = Math.max(tm.wallMs, 1);
-    h += box(t("耗时"),
-      '<div class="big">' + esc(dur(tm.wallMs)) + "</div>" +
-      [[t("模型"), tm.modelMs, "#3b82f6"], [t("工具"), tm.toolMs, "#f59e0b"], [t("其它"), tm.overheadMs, "#94a3b8"]].map(r => '<div class="trow"><span>' + esc(r[0]) + '</span><span class="rb"><i style="width:' + Math.min(100, (r[1] / wall) * 100) + "%;background:" + r[2] + '"></i></span><b>' + esc(dur(r[1])) + "</b></div>").join(""));
-
-    // 5 构成
-    const comp = tk.comp, all = sum(comp);
-    h += box(t("上下文构成"), stack(comp, 10) + '<table class="tbl"><tbody>' + CATS.map(c => {
-      const v = comp[c[0]] || 0;
-      return '<tr><td><i class="dot" style="background:' + c[2] + '"></i>' + esc(t(c[1])) + "</td><td class=\"r\">" + (CAT_NA[c[0]] && !v ? '<span class="na" title="' + esc(t("M-Harness 的 trace 里没有这项数据")) + '">—</span>' : fmt(v)) + '</td><td class="r dim">' + (CAT_NA[c[0]] && !v ? "" : pct(v, all)) + "</td></tr>";
-    }).join("") + "</tbody></table>", "span2");
-
-    // 6 走势（占两列）
-    h += box(t("Token 走势"), trendChart(d), "span2", '<span class="dim">' + esc(t("点柱子查看这一步带了什么")) + "</span>");
-
-    // 7 压缩与事件
-    h += box(t("压缩与事件"), (d.events.filter(e => e.type !== "start").length
-      ? '<div class="evs">' + d.events.filter(e => e.type !== "start").slice(-30).reverse().map(e => '<div class="evr">' + eventRow(e) + "</div>").join("") + "</div>"
-      : '<div class="dbx-hint">' + esc(t("没有压缩、拦截或审批事件。")) + "</div>"), "", '<span class="dim">' + esc(t("压缩 {0} 次", st.trims)) + "</span>");
-
-    // 8 工具与技能
-    h += box(t("工具与技能"),
-      (d.tools.length ? miniTable([t("工具"), t("次数"), t("耗时"), t("输出")], d.tools.slice(0, 12).map(x => [esc(x.name), x.count, esc(dur(x.ms)), "~" + fmt(x.outTokens)])) : '<div class="dbx-hint">' + esc(t("没有工具调用。")) + "</div>") +
-      '<h5>' + esc(t("技能")) + "</h5>" +
-      (d.skills.length ? d.skills.map(x => '<span class="tag">' + esc(x.name) + " ×" + x.count + "</span>").join("") : '<div class="dbx-hint">' + esc(t("没有调用技能。")) + "</div>"));
-
-    // 9 命令与文件
-    h += box(t("命令与文件"),
-      '<h5>' + esc(t("命令")) + "</h5>" +
-      (d.commands.programs.length ? d.commands.programs.slice(0, 8).map(x => '<span class="tag' + (x.fails ? " bad" : "") + '">' + esc(x.program) + " ×" + x.count + (x.fails ? " · " + esc(t("失败 {0}", x.fails)) : "") + "</span>").join("") : '<div class="dbx-hint">' + esc(t("没有执行命令。")) + "</div>") +
-      (d.commands.runs.length ? '<div class="cmds">' + d.commands.runs.slice(0, 6).map(r => '<div class="cmd' + (r.blocked || r.timedOut || (r.exit != null && r.exit !== 0) ? " bad" : "") + '"><code>' + esc(r.command || t("（被拦截）")) + '</code><span class="dim">' + (r.blocked ? esc(t("拦截")) : r.timedOut ? esc(t("超时")) : r.exit == null ? "" : "exit " + r.exit) + "</span></div>").join("") + "</div>" : "") +
-      '<h5>' + esc(t("文件")) + ' <span class="dim">' + esc(t("读 {0} · 写 {1} · 列目录 {2}", st.files.read, st.files.write, st.files.list)) + "</span></h5>" +
-      (d.files.length ? '<div class="files">' + d.files.slice(0, 8).map(f => '<div class="file"><code title="' + esc(f.path) + '">' + esc(f.path) + '</code><span class="dim">' + (f.read ? "R" + f.read + " " : "") + (f.write ? "W" + f.write + " " : "") + (f.list ? "L" + f.list : "") + "</span></div>").join("") + "</div>" : '<div class="dbx-hint">' + esc(t("没有文件读写。")) + "</div>"), "span2");
-
-    h += "</div>";
-    h += '<h2 class="sec">' + (S.step == null ? esc(t("上下文内容")) : esc(t("第 {0} 步发给模型的内容", S.step))) + "</h2><div id=\"msgs\"></div>";
-    return h;
+    if (!S.sessions) return '<div class="dbx-hint pad">' + esc(t("加载中…")) + "</div>";
+    if (!S.sessions.length) return empty(t("没有找到 trace 记录"), t("在 M-Harness 里跑一次任务，这里就会出现；目录不对可以到设置里修改 trace 目录。"));
+    if (!S.detail) return '<div class="dbx-hint pad">' + esc(t("分析中…")) + "</div>";
+    return CX.view(S.detail);
   }
-
-  function msgsHtml() {
-    if (S.msgs == null) return '<div class="dbx-hint pad">' + esc(t("加载中…")) + "</div>";
-    if (!S.msgs.length) return '<div class="dbx-hint pad">' + esc(t("没有这一步的消息记录。")) + "</div>";
-    const colors = Object.fromEntries(CATS.map(c => [c[0], c[2]]));
-    return '<div class="msgs">' + S.msgs.map(m =>
-      '<details class="msg"><summary><i class="dot" style="background:' + colors[m.cat] + '"></i><span class="mr">' + esc(m.role) + (m.tool ? " · " + esc(m.tool) : "") + '</span><span class="mc dim">' + esc(catLabel(m.cat)) + '</span><span class="mt">~' + fmt(m.tokens) + '</span><span class="mp">' + esc(m.text.slice(0, 120).replace(/\s+/g, " ")) + "</span></summary><pre>" + esc(m.text) + (m.truncated ? "\n…" + esc(t("（已截断）")) : "") + "</pre></details>").join("") + "</div>";
-  }
-  function paintMsgs() { const el = $("msgs"); if (el) el.innerHTML = msgsHtml(); }
-
-  function bindContext() {
-    const sel = $("runSel");
-    if (sel) sel.onchange = () => openSession(sel.value);
-    view.querySelectorAll(".sbar").forEach(b => { b.onclick = () => { S.step = Number(b.getAttribute("data-step")); view.querySelectorAll(".sbar").forEach(x => x.classList.toggle("on", x === b)); const h = view.querySelector("h2.sec:last-of-type"); if (h) h.textContent = t("第 {0} 步发给模型的内容", S.step); loadMsgs(); }; });
-    paintMsgs();
-  }
-
-  function loadRuns() {
-    return rpc("runs/list", { limit: 80 }).then(r => {
-      S.runs = r;
-      if (!S.name && r.length) S.name = r[0].name;
-      if (S.tab === "context") { paint(); if (S.name && !S.detail) loadDetail(); }
-    }).catch(e => { S.runs = []; view.innerHTML = fail(e); });
-  }
+  function bindContext() { if (S.detail) CX.bind(); }
 
   // ───────── Fleet ─────────
   function viewFleet() {
     const f = S.fleet;
     if (!f) return '<div class="dbx-hint pad">' + esc(t("加载中…")) + "</div>";
+    const subs = [];
+    f.list.forEach(d => ((d.ctx && d.ctx.subagents) || []).forEach(x => subs.push({ ...x, session: d.input || d.name, name: d.name })));
+    subs.sort((a, b) => b.ts - a.ts);
+    const subBody = subs.length
+      ? '<div class="cx-evs">' + subs.slice(0, 30).map(x => '<div class="cx-ev fl" data-n="' + esc(x.name) + '"><span class="cx-tag" style="--c:#6366f1">' + esc(x.type || "task") + '</span><span class="el" title="' + esc(x.desc) + '">' + esc(x.desc || "—") + '</span><span class="ep">' + esc(t("第 {0} 轮", x.turn) + " · " + t("第 {0} 步", x.step)) + '</span><span class="ed">' + esc(x.ms ? dur(x.ms) : "—") + '</span><span class="et">' + esc(when(x.ts)) + "</span></div>").join("") + "</div>"
+      : empty(t("暂无数据"), t("最近的外部 Agent 对话里没有调用子 Agent（task 工具）。"));
     let h = '<div class="grid2">' +
-      box(t("子 Agent 实时卡片"), empty(t("暂无数据"), t("M-Harness 的 trace 不记录子 Agent / 并行任务，这里先占位，保持布局完整。"))) +
+      box(t("子 Agent 任务"), subBody) +
       box(t("外部 Agent 会话"), f.list.length
         ? '<div class="dbx-hint">' + esc(t("使用 cli / cursor-sdk 提供方的会话，只有进度事件，没有真实 token 用量；费用按提示词和过程文本估算（偏低）。")) + "</div>"
         : '<div class="dbx-hint">' + esc(t("最近没有使用外部 Agent 提供方（cli / cursor-sdk）的会话。")) + "</div>") + "</div>";
@@ -508,7 +434,8 @@
     $("dlg").innerHTML = '<h3>' + esc(t("设置")) + "</h3>" +
       '<div class="frow"><label>' + esc(t("默认时间范围")) + '</label><select id="sRange">' + opt("today", p.range, t("今天")) + opt("7", p.range, t("7 天")) + opt("30", p.range, t("30 天")) + opt("all", p.range, t("全部")) + "</select></div>" +
       '<div class="frow" style="grid-template-columns:120px 1fr 90px"><label>' + esc(t("成本货币")) + '</label><select id="sCur">' + opt("usd", p.currency, "USD ($)") + opt("cny", p.currency, "CNY (¥)") + '</select><input id="sFx" type="number" step="any" min="0.1" title="' + esc(t("汇率：1 美元 = ? 人民币")) + '" value="' + esc(p.fx) + '" /></div>' +
-      '<div class="frow col"><label class="chk"><input type="checkbox" id="sBal"' + (p.balance !== false ? " checked" : "") + " /> " + esc(t("在页头显示 DeepSeek 余额")) + '</label><div class="dim">' + esc(t("会把 M-Harness 配置里 DeepSeek 提供方的 key 发给 api.deepseek.com 查余额（只发这一个地址，key 不会显示在界面里）。取消勾选就不会联网。")) + "</div></div>" +
+      '<div class="frow col"><label class="chk"><input type="checkbox" id="sBal"' + (p.balance !== false ? " checked" : "") + " /> " + esc(t("在页头显示当前提供方的余额")) + '</label><div class="dim">' + esc(t("查的是当前在用的提供方（最近一次运行用的，没有就是默认提供方）。只有 DeepSeek / Moonshot / SiliconFlow / OpenRouter 有用 key 查余额的接口：会把该提供方的 key 发给它自己的接口（只发这一个地址，key 不会显示在界面里）。Cursor、OpenAI、Anthropic、智谱、命令行 Agent 没有这种接口，不会联网。取消勾选就完全不联网。")) + "</div></div>" +
+      '<div class="frow col"><label class="chk"><input type="checkbox" id="sMerge"' + (p.merge !== false ? " checked" : "") + " /> " + esc(t("把续接的运行合成一个对话")) + '</label><div class="dim">' + esc(t("Cursor 对话每发一句话是一次运行；续接上一轮的运行会按时间先后并进同一个提供方最近的对话。两个对话交替使用时可能归错，取消勾选就每次运行单独成一个会话。")) + "</div></div>" +
       '<div class="frow"><label>' + esc(t("默认排序")) + '</label><select id="sSort">' + opt("recent", p.sort, t("按最近活跃")) + opt("tokens", p.sort, t("按 Token 用量")) + opt("context", p.sort, t("按上下文大小")) + "</select></div>" +
       '<div class="frow"><label>' + esc(t("会话分组")) + '</label><select id="sGroup">' + opt("none", p.group, t("不分组")) + opt("provider", p.group, t("按提供方分组")) + "</select></div>" +
       '<div class="frow col"><label>' + esc(t("trace 目录")) + '</label><input id="sDir" placeholder="' + esc(env.active || "") + '" value="' + esc(env.override || "") + '" /><div class="dim">' + esc(t("当前：{0}（留空 = 自动查找）", env.active || t("没有找到 trace 目录"))) + "</div></div>" +
@@ -522,7 +449,7 @@
     $("sSave").onclick = () => {
       const prices = [...$("prices").querySelectorAll(".prow")].map(r => ({ match: r.querySelector(".pm").value.trim(), in: Number(r.querySelector(".pi").value) || 0, out: Number(r.querySelector(".po").value) || 0 })).filter(x => x.match);
       const dir = $("sDir").value.trim();
-      rpc("env/setTraceDir", { dir }).then(() => rpc("prefs/set", { range: $("sRange").value, sort: $("sSort").value, group: $("sGroup").value, currency: $("sCur").value, fx: Number($("sFx").value) || 7.2, balance: $("sBal").checked, prices })).then(r => {
+      rpc("env/setTraceDir", { dir }).then(() => rpc("prefs/set", { range: $("sRange").value, sort: $("sSort").value, group: $("sGroup").value, currency: $("sCur").value, fx: Number($("sFx").value) || 7.2, balance: $("sBal").checked, merge: $("sMerge").checked, prices })).then(r => {
         S.prefs = r; S.range = r.range; S.sort = r.sort; S.group = r.group; S.day = ""; S.from = S.to = ""; closeModal(); toast(t("已保存"));
         refresh();
         if (S.tab === "insights") loadBalance(true);
@@ -551,13 +478,13 @@
   }
   function refresh() {
     if (S.tab === "insights") return loadOverview();
-    if (S.tab === "context") { S.detail = null; return loadRuns().then(() => (S.name ? loadDetail() : null)); }
+    if (S.tab === "context") { S.detail = null; return loadSessions(); }
     return loadFleet();
   }
   function setTab(k) {
     S.tab = k; paintTabs();
     if (k === "insights") { if (S.ov) paint(); loadOverview(); }
-    else if (k === "context") { paint(); loadRuns().then(() => { if (S.name && !S.detail) loadDetail(); }); }
+    else if (k === "context") { paint(); loadSessions(); }
     else loadFleet();
   }
   function setLang(l) {

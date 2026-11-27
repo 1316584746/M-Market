@@ -1,7 +1,7 @@
 {
   "id": "agent-teams",
   "name": "AgentTeams",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "多 Agent 团队协作：AI 当队长，一句话组好带依赖的任务和持久成员，批准后成员自动领任务、互发消息，页面里实时看进度、任务依赖图和成员动态；任务可加质量门（合同、完成证据、评审不过自动修复 + 复审）。产品模型移植自 NanmiCoder/dsh-agent-teams。",
   "publisher": "M-Market",
   "license": "MIT",

@@ -247,7 +247,7 @@ describe("context-insight 0.2：界面", () => {
 
   it("中文原文都在英文词典里，占位符一致，且没有漏网的中文", () => {
     const dict = new Function("window", fs.readFileSync(path.join(ui, "i18n.js"), "utf8") + ";return window.CI_EN;")({});
-    let src = strip(fs.readFileSync(path.join(ui, "app.js"), "utf8"));
+    let src = ["app.js", "ctxview.js"].map(n => strip(fs.readFileSync(path.join(ui, n), "utf8"))).join("\n");
     const keys = new Set();
     src = src.replace(/\bt\("((?:[^"\\\n]|\\.)*)"/g, (m, k) => (keys.add(k), 't("'));
     src = src.replace(/\["\w+", "([^"]+)", "#/g, (m, k) => (keys.add(k), '["x", "#'));
@@ -264,7 +264,7 @@ describe("context-insight 0.2：界面", () => {
 
   it("入口页引用的文件都在", () => {
     const html = fs.readFileSync(path.join(ui, "index.html"), "utf8");
-    for (const f of ["style.css", "i18n.js", "app.js"]) {
+    for (const f of ["style.css", "i18n.js", "ctxview.js", "app.js"]) {
       assert.ok(html.includes(f), f);
       assert.ok(fs.existsSync(path.join(ui, f)), f);
     }
