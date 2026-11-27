@@ -109,6 +109,27 @@ function createInsight({ est, readLines, listFiles, store, config }) {
     return (base || "?").toLowerCase();
   };
 
+  // 技能：use_skill 之外，读 <技能名>/SKILL.md 也算用了该技能（Cursor 等外部 Agent 没有 use_skill，只能这样认）
+  const skillFromPath = file => {
+    const m = /([^\\/]+)[\\/]SKILL\.md$/i.exec(String(file || ""));
+    return m ? m[1] : "";
+  };
+  // MCP / 插件工具：M-Harness 给模型的名字是 mcp__<服务>__<工具>、plugin__<插件>__<工具>；
+  // 外部 Agent 若用统一的「mcp」工具（参数里带服务和工具名），折算成同样的名字，统计口径一致
+  const canonTool = (name, args) => {
+    const n = String(name || "");
+    if (/^(mcp|callmcptool|call_mcp_tool)$/i.test(n) && args && typeof args === "object") {
+      const server = args.server || args.serverName || args.providerIdentifier || args.provider;
+      const tool = args.toolName || args.tool || args.name;
+      if (server || tool) return `mcp__${server || "?"}__${tool || "?"}`;
+    }
+    return n;
+  };
+  const toolGroup = name => {
+    const m = /^(mcp|plugin)__(.+?)__(.+)$/.exec(String(name || ""));
+    return m ? { group: m[1], server: m[2], tool: m[3] } : null;
+  };
+
   function build(file, st) {
     const p = {
       name: path.basename(file, ".jsonl"),
@@ -128,10 +149,14 @@ function createInsight({ est, readLines, listFiles, store, config }) {
       events: [],
       progress: { counts: {}, last: [] },
       // 外部 Agent（cli / cursor-sdk）不会把 token 用量写进 trace，只能按提示词和过程文本粗估
-      agent: { inTok: 0, outTok: 0, textLines: 0, doneTok: 0 },
+      agent: { inTok: 0, outTok: 0, textLines: 0, doneTok: 0, thinkTok: 0, toolTok: 0, textTok: 0 },
       userMsgs: 0,
+      // 模型调用和工具执行之外、事件之间的空档（单个空档最多算 2 分钟，更长的当作人不在）。外部 Agent 的过程行不算
+      overheadMs: 0,
       skipped: "",
     };
+    let prevTs = 0;
+    let prevType = "";
     let lines;
     try {
       lines = readLines(file);
@@ -141,7 +166,74 @@ function createInsight({ est, readLines, listFiles, store, config }) {
     }
     const steps = new Map();
     const pending = new Map();
+    const agentTools = [];
+    const agentCmds = [];
+    const agentFiles = [];
+    const agentSkills = [];
+    const agentQ = new Map();
+    let structuredTools = false;
     let cur = 0;
+    const takeQ = (key) => {
+      const q = agentQ.get(key);
+      return q && q.length ? q.shift() : null;
+    };
+    // 外部 Agent 不写 tool_call，工具过程在 agent_progress 里：🔧 name {args} 是一次调用，✓ name → … 是结果
+    const noteAgentTool = (ts, line) => {
+      const text = String(line || "").trim();
+      const call = /^🔧\s*(\S+)\s*([\s\S]*)$/.exec(text);
+      if (call) {
+        let args = null;
+        const raw = call[2].trim();
+        if (raw.startsWith("{")) {
+          try {
+            args = JSON.parse(raw);
+          } catch {
+            args = null;
+          }
+        }
+        const rawName = call[1];
+        const name = canonTool(rawName, args);
+        const ev = { ts, name, ms: 0, out: 0, step: 0 };
+        agentTools.push(ev);
+        // 结果行写的是原始名字，按原始名字配对
+        const q = agentQ.get(rawName) || [];
+        q.push(ev);
+        agentQ.set(rawName, q);
+        if (name === "use_skill" && args && typeof args.name === "string") agentSkills.push({ ts, name: args.name, step: 0 });
+        const filePath = args && (args.path || args.file_path || args.target_file);
+        if (filePath && /^(read|read_file|edit|write|write_file|glob|list_dir)$/.test(name)) {
+          const kind = /^(edit|write|write_file)$/.test(name) ? "write" : /^(glob|list_dir)$/.test(name) ? "list" : "read";
+          agentFiles.push({ ts, step: 0, kind, path: String(filePath) });
+          const skill = kind === "read" ? skillFromPath(filePath) : "";
+          if (skill) agentSkills.push({ ts, name: skill, step: 0 });
+        }
+        if ((name === "shell" || name === "run_command") && args && typeof args.command === "string") {
+          const cmd = { ts, step: 0, command: args.command.slice(0, 300), program: programOf(args.command), exit: null, timedOut: false, ms: 0 };
+          agentCmds.push(cmd);
+          const cq = agentQ.get("cmd:" + name) || [];
+          cq.push(cmd);
+          agentQ.set("cmd:" + name, cq);
+        }
+        return;
+      }
+      const res = /^[✓✗×✘]\s*(\S+)\s*(?:→|->)\s*([\s\S]*)$/.exec(text);
+      if (!res) return;
+      const ev = takeQ(res[1]);
+      if (ev) ev.out = est(res[2]);
+      if (res[1] === "shell" || res[1] === "run_command") {
+        const cmd = takeQ("cmd:" + res[1]);
+        if (cmd) {
+          try {
+            const body = JSON.parse(res[2]);
+            const v = body && body.value && typeof body.value === "object" ? body.value : body;
+            if (v && typeof v.exitCode === "number") cmd.exit = v.exitCode;
+            else if (body && body.status === "error") cmd.exit = 1;
+          } catch {
+            /* 结果被截断时只保留调用次数 */
+          }
+        }
+      }
+    };
     const stepOf = n => {
       if (!steps.has(n)) steps.set(n, { step: n, ts: 0, day: "", prompt: 0, output: 0, total: 0, ms: 0, estimated: true, ctx: 0, msgCount: 0, comp: emptyComp(), billed: emptyComp() });
       return steps.get(n);
@@ -157,6 +249,16 @@ function createInsight({ est, readLines, listFiles, store, config }) {
       const ts = j.ts || 0;
       p.startedAt ||= ts;
       p.endedAt = ts || p.endedAt;
+      if (ts) {
+        if (prevTs) {
+          const gap = ts - prevTs;
+          // 模型调用、工具执行本身的时间已经另算；外部 Agent 的过程行之间也看不出空档，都不计入
+          const covered = (prevType === "model_call" && e.type === "model_reply") || (prevType === "tool_call" && (e.type === "tool_result" || e.type === "approval" || e.type === "tool_blocked")) || prevType === "agent_progress" || e.type === "agent_progress";
+          if (!covered && gap > 0) p.overheadMs += Math.min(gap, 120000);
+        }
+        prevTs = ts;
+        prevType = e.type || "";
+      }
       switch (e.type) {
         case "run_start":
           p.provider = e.provider || "";
@@ -206,12 +308,15 @@ function createInsight({ est, readLines, listFiles, store, config }) {
           break;
         }
         case "tool_call": {
+          structuredTools = true;
           const q = pending.get(e.step) || [];
           q.push({ name: e.name, args: e.args, ts });
           pending.set(e.step, q);
           if (e.name === "use_skill" && e.args && typeof e.args.name === "string") p.skillEv.push({ ts, name: e.args.name, step: e.step });
           if ((e.name === "read_file" || e.name === "write_file" || e.name === "list_dir") && e.args) {
             p.fileEv.push({ ts, step: e.step, kind: e.name === "read_file" ? "read" : e.name === "write_file" ? "write" : "list", path: String(e.args.path ?? ".") });
+            const skill = e.name === "read_file" ? skillFromPath(e.args.path) : "";
+            if (skill) p.skillEv.push({ ts, name: skill, step: e.step });
           }
           break;
         }
@@ -219,7 +324,7 @@ function createInsight({ est, readLines, listFiles, store, config }) {
           const q = pending.get(e.step) || [];
           const i = q.findIndex(x => x.name === e.name);
           const call = i >= 0 ? q.splice(i, 1)[0] : { args: null };
-          p.toolEv.push({ ts, name: e.name, ms: e.ms || 0, out: est(e.output), step: e.step });
+          p.toolEv.push({ ts, name: canonTool(e.name, call.args), ms: e.ms || 0, out: est(e.output), step: e.step });
           if (e.name === "run_command") {
             const command = String(call.args?.command ?? "");
             const m = /^(\[超时已终止\]\s*)?exit=(-?\d+|null)/.exec(String(e.output || ""));
@@ -242,8 +347,19 @@ function createInsight({ est, readLines, listFiles, store, config }) {
           const k = e.kind || "text";
           p.progress.counts[k] = (p.progress.counts[k] || 0) + 1;
           // 状态行是界面提示、错误行不是模型输出，都不算 token
-          if (k === "text" || k === "thinking" || k === "tool") p.agent.outTok += est(e.line);
-          if (k === "text") p.agent.textLines++;
+          const n = est(e.line);
+          if (k === "thinking") {
+            p.agent.thinkTok += n;
+            p.agent.outTok += n;
+          } else if (k === "text") {
+            p.agent.textTok += n;
+            p.agent.outTok += n;
+            p.agent.textLines++;
+          } else if (k === "tool") {
+            p.agent.toolTok += n;
+            p.agent.outTok += n;
+            noteAgentTool(ts, e.line);
+          }
           p.progress.last.push({ ts, kind: k, line: String(e.line || "").slice(0, 200) });
           if (p.progress.last.length > 30) p.progress.last.shift();
           break;
@@ -258,6 +374,13 @@ function createInsight({ est, readLines, listFiles, store, config }) {
       }
     }
     p.steps = [...steps.values()].filter(s => s.ts).sort((a, b) => a.step - b.step);
+    // 同一份 trace 里若已有 tool_call，就不再把进度行算进去，避免调用次数翻倍
+    if (!structuredTools) {
+      p.toolEv.push(...agentTools);
+      p.cmdEv.push(...agentCmds);
+      p.fileEv.push(...agentFiles);
+      p.skillEv.push(...agentSkills);
+    }
     // 外部 Agent 会话：没有模型调用记录，就合成一步「估算用量」，这样总览、7 天图、成本都能照常算。
     // 输入 = 你发给它的提示词；输出 = 它的回复 / 思考 / 工具过程文本（最终回复和过程里的回复重复时只算一次）。
     // 它内部反复读上下文的开销看不到，所以这是下限。
@@ -266,7 +389,12 @@ function createInsight({ est, readLines, listFiles, store, config }) {
       const out = a.outTok + (a.textLines ? 0 : a.doneTok);
       const ts = p.endedAt || p.startedAt || st.mtimeMs;
       if (a.inTok + out > 0) {
-        p.steps.push({ step: 1, ts, day: dayOf(ts), prompt: a.inTok, output: out, total: a.inTok + out, ms: Math.max(0, (p.endedAt || 0) - (p.startedAt || 0)), estimated: true, agentEstimate: true, ctx: 0, msgCount: 0, comp: emptyComp(), billed: emptyComp() });
+        const billed = emptyComp();
+        billed.user = a.inTok;
+        billed.reasoning = a.thinkTok;
+        billed.toolcalls = a.toolTok;
+        billed.answers = a.textTok + (a.textLines ? 0 : a.doneTok);
+        p.steps.push({ step: 1, ts, day: dayOf(ts), prompt: a.inTok, output: out, total: a.inTok + out, ms: Math.max(0, (p.endedAt || 0) - (p.startedAt || 0)), estimated: true, agentEstimate: true, ctx: 0, msgCount: 0, comp: { ...billed }, billed });
       }
     }
     return p;
@@ -295,10 +423,15 @@ function createInsight({ est, readLines, listFiles, store, config }) {
 
   /** 某个会话在日期集合里的用量 */
   function usageIn(p, price, days) {
-    const u = { steps: 0, input: 0, output: 0, tokens: 0, cost: price ? 0 : null, comp: emptyComp(), ms: 0 };
+    const u = { steps: 0, input: 0, output: 0, tokens: 0, cost: price ? 0 : null, comp: emptyComp(), ms: 0, outReal: 0, msReal: 0 };
     for (const s of p.steps) {
       if (days && !days.has(s.day)) continue;
       u.steps++;
+      // 输出速度只看有真实用量、有耗时的调用（估算出来的 token 数不能拿来算速度）
+      if (!s.estimated && s.ms > 0) {
+        u.outReal += s.output;
+        u.msReal += s.ms;
+      }
       u.input += s.prompt;
       u.output += s.output;
       u.tokens += s.total || s.prompt + s.output;
@@ -310,11 +443,26 @@ function createInsight({ est, readLines, listFiles, store, config }) {
   }
   const inDays = (ts, days) => !days || days.has(dayOf(ts));
 
-  function rangeDays(range, day) {
+  const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+  const MAX_SPAN = 400;
+  const daysBetween = (a, b) => Math.round((new Date(b + "T00:00:00").getTime() - new Date(a + "T00:00:00").getTime()) / 86400000);
+  const span = (from, to) => Array.from({ length: Math.min(MAX_SPAN, daysBetween(from, to) + 1) }, (_, i) => addDays(from, i));
+
+  /** 时间范围：单日 > 自定义起止 > 今天 / 7 / 30 / 全部（从最早的记录算起，最多 400 天） */
+  function rangeDays(o, earliest) {
     const today = dayOf(Date.now());
-    if (day && /^\d{4}-\d{2}-\d{2}$/.test(day)) return { list: [day], set: new Set([day]), today };
-    const n = range === "today" ? 1 : range === "30" ? 30 : 7;
-    const list = Array.from({ length: n }, (_, i) => addDays(today, i - (n - 1)));
+    const range = String(o.range || store.get().range || "7");
+    let list;
+    if (o.day && DAY_RE.test(o.day)) list = [o.day];
+    else if (DAY_RE.test(o.from || "") && DAY_RE.test(o.to || "")) {
+      const [a, b] = o.from <= o.to ? [o.from, o.to] : [o.to, o.from];
+      list = span(a, b > today ? today : b);
+    } else if (range === "all") list = span(earliest && earliest < today ? earliest : today, today);
+    else {
+      const n = range === "today" ? 1 : range === "30" ? 30 : 7;
+      list = Array.from({ length: n }, (_, i) => addDays(today, i - (n - 1)));
+    }
+    if (!list.length) list = [today];
     return { list, set: new Set(list), today };
   }
 
@@ -328,12 +476,21 @@ function createInsight({ est, readLines, listFiles, store, config }) {
 
   function overview(o = {}) {
     const cfg = config();
-    const { list, set, today } = rangeDays(String(o.range || store.get().range || "7"), o.day);
     const profiles = allProfiles();
-    const kpi = { sessions: 0, tokens: 0, input: 0, output: 0, cost: 0, priced: false, cacheHit: null, turns: 0, steps: 0, toolExec: 0, activeMs: 0, agentSessions: 0 };
+    let earliest = "";
+    for (const p of profiles) {
+      const first = p.steps.length ? p.steps[0].day : p.startedAt ? dayOf(p.startedAt) : "";
+      if (first && (!earliest || first < earliest)) earliest = first;
+    }
+    const { list, set, today } = rangeDays(o, earliest);
+    const kpi = { sessions: 0, pricedSessions: 0, tokens: 0, input: 0, output: 0, cost: 0, priced: false, cacheHit: null, turns: 0, steps: 0, toolExec: 0, activeMs: 0, agentSessions: 0, mcpCalls: 0, pluginCalls: 0, skillUses: 0 };
+    // 耗时统计：模型调用 / 工具执行 / 其他开销。模型再细分成等待、思考、回复需要流式时间戳，trace 里没有，所以不拆
+    const timing = { modelMs: 0, toolMs: 0, overheadMs: 0, modelCalls: 0, toolCalls: 0, outReal: 0, msReal: 0 };
     const skills = new Map();
     const tools = new Map();
     const commands = new Map();
+    const mcp = new Map();
+    const plugins = new Map();
     const comp = emptyComp();
     const cards = [];
     const sortKey = ["recent", "tokens", "context"].includes(o.sort) ? o.sort : store.get().sort || "recent";
@@ -344,7 +501,7 @@ function createInsight({ est, readLines, listFiles, store, config }) {
     // 热力图：最近 8 周（周一开头），每天的 token
     const dow = (new Date().getDay() + 6) % 7;
     const heatStart = addDays(today, -(dow + 49));
-    const heat = Array.from({ length: 56 }, (_, i) => ({ day: addDays(heatStart, i), tokens: 0 })).filter(h => h.day <= today);
+    const heat = Array.from({ length: 56 }, (_, i) => ({ day: addDays(heatStart, i), tokens: 0, sessions: 0 })).filter(h => h.day <= today);
     const heatIdx = new Map(heat.map((h, i) => [h.day, i]));
     let anyPrice = false;
 
@@ -365,6 +522,8 @@ function createInsight({ est, readLines, listFiles, store, config }) {
       for (const d of new Set(p.steps.map(s => s.day))) {
         const wi = weekIdx.get(d);
         if (wi !== undefined) week[wi].sessions++;
+        const hi = heatIdx.get(d);
+        if (hi !== undefined) heat[hi].sessions++;
       }
       const active = p.steps.some(s => set.has(s.day)) || (!p.steps.length && inDays(p.startedAt, set));
       if (!active) continue;
@@ -395,10 +554,29 @@ function createInsight({ est, readLines, listFiles, store, config }) {
         kpi.turns += 1;
         kpi.steps += u.steps;
         kpi.toolExec += tEv.length;
-        kpi.activeMs += u.ms + tEv.reduce((n, e) => n + e.ms, 0);
+        if (price && u.steps) kpi.pricedSessions++;
+        // 范围只覆盖会话的一部分时，其他开销按这段范围内的调用占比分摊
+        const toolMs = tEv.reduce((n, e) => n + e.ms, 0);
+        const share = p.steps.length ? u.steps / p.steps.length : 1;
+        const overhead = Math.round((p.overheadMs || 0) * share);
+        timing.modelMs += u.ms;
+        timing.toolMs += toolMs;
+        timing.overheadMs += overhead;
+        timing.modelCalls += u.steps;
+        timing.toolCalls += tEv.length;
+        timing.outReal += u.outReal;
+        timing.msReal += u.msReal;
+        kpi.activeMs += u.ms + toolMs + overhead;
         addComp(comp, u.comp);
         for (const e of sEv) bump(skills, e.name, e.ts);
-        for (const e of tEv) bump(tools, e.name, e.ts);
+        for (const e of tEv) {
+          bump(tools, e.name, e.ts);
+          const g = toolGroup(e.name);
+          if (!g) continue;
+          bump(g.group === "mcp" ? mcp : plugins, e.name, e.ts, { label: `${g.server} / ${g.tool}`, server: g.server });
+          kpi[g.group === "mcp" ? "mcpCalls" : "pluginCalls"]++;
+        }
+        kpi.skillUses += sEv.length;
         for (const e of cEv) bump(commands, e.program, e.ts);
       }
       if (!matchQ) continue;
@@ -425,16 +603,26 @@ function createInsight({ est, readLines, listFiles, store, config }) {
     }
     cards.sort((a, b) => (sortKey === "tokens" ? b.tokens - a.tokens : sortKey === "context" ? b.ctx - a.ctx : b.lastActive - a.lastActive));
     const rank = m => [...m.values()].sort((a, b) => b.count - a.count || b.last - a.last).slice(0, 30);
+    const custom = !o.day && DAY_RE.test(o.from || "") && DAY_RE.test(o.to || "");
+    // 排行只返回前 30 项，标题上的「N 个 · N 次」要按全部算
+    const tot = m => ({ n: m.size, count: [...m.values()].reduce((a, x) => a + x.count, 0) });
     return {
-      range: o.day ? "day" : String(o.range || store.get().range || "7"),
+      totals: { skills: tot(skills), tools: tot(tools), mcp: tot(mcp), plugins: tot(plugins), commands: tot(commands) },
+      range: o.day ? "day" : custom ? "custom" : String(o.range || store.get().range || "7"),
       day: o.day || "",
+      from: list[0],
+      to: list[list.length - 1],
+      earliest,
       days: list,
       today,
+      timing: { ...timing, speed: timing.msReal > 0 ? timing.outReal / (timing.msReal / 1000) : null },
       kpi: { ...kpi, cost: kpi.priced ? kpi.cost : null, priced: undefined },
       week,
       heat,
       skills: rank(skills),
       tools: rank(tools),
+      mcp: rank(mcp),
+      plugins: rank(plugins),
       commands: rank(commands),
       comp,
       sessions: cards.slice(0, 200),

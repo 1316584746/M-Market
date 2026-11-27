@@ -1,0 +1,38 @@
+{
+  "id": "modsearch",
+  "name": "modsearch",
+  "version": "0.1.0",
+  "description": "给 AI 联网搜索和读网页：多个引擎自动故障转移，开箱即用、不用注册。支持多 key 轮换、配额冷却、内网防护。移植自 liustack/modsearch。",
+  "publisher": "M-Market",
+  "license": "MIT",
+  "homepage": "https://github.com/1316584746/M-Market",
+  "icon": "assets/icon.svg",
+  "permissions": ["net.connect:https", "net.connect:http"],
+  "entrypoints": {
+    "backend": { "executable": "bin/backend.cjs" },
+    "ui": { "root": "ui", "entry": "ui/index.html" }
+  },
+  "contributions": [
+    { "type": "workbench", "icon": "assets/icon.svg", "label": "modsearch" },
+    {
+      "type": "mcp",
+      "tools": {
+        "web_search": { "description": "联网搜索，返回带链接和摘要的排序结果；多个引擎自动故障转移" },
+        "x_search": { "description": "搜索 X（Twitter）。本版没有 X 引擎，会用网页搜索代答并标明是二手证据" },
+        "read_page": { "description": "读取一个网页的正文和链接，长页面分段返回，5 分钟内翻页不重复抓取" },
+        "modsearch_doctor": { "description": "查看当前会用哪些引擎、哪些 key 已配置、哪些引擎在配额冷却" }
+      }
+    }
+  ],
+  "localizations": {
+    "zh-CN": {
+      "name": "modsearch",
+      "description": "给 AI 联网搜索和读网页：多个引擎自动故障转移，开箱即用、不用注册。支持多 key 轮换、配额冷却、内网防护。移植自 liustack/modsearch。"
+    },
+    "en": {
+      "name": "modsearch",
+      "description": "Web search and page reading for the AI: several engines with automatic failover, working out of the box with no signup. Multi-key rotation, quota cooldown, private-network guard. A port of liustack/modsearch."
+    }
+  },
+  "tags": ["search", "web", "fetch", "firecrawl", "keenable", "tavily", "exa"]
+}

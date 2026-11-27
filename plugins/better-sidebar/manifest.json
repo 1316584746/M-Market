@@ -1,8 +1,8 @@
 {
   "id": "better-sidebar",
-  "name": "Better Sidebar",
-  "version": "0.1.1",
-  "description": "侧边工作台（精简版）：文件树、文本查看 / 编辑、文件名和内容搜索、Git 状态 / diff / 暂存。",
+  "name": "DSH-better-sidebar",
+  "version": "0.1.4",
+  "description": "侧边工作台：文件树、文本查看 / 编辑、文件名和内容搜索、Git 状态 / diff / 暂存。名称与 dsh market 的 DSH-better-sidebar 一致；终端、侧边对话、任务页因宿主不支持而没有。",
   "publisher": "M-Market",
   "license": "MIT",
   "homepage": "https://github.com/1316584746/M-Market",
@@ -12,10 +12,10 @@
     "backend": { "executable": "bin/backend.cjs" },
     "ui": { "root": "ui", "entry": "ui/index.html" }
   },
-  "contributions": [{ "type": "workbench", "icon": "assets/icon.svg", "label": "侧边工作台" }],
+  "contributions": [{ "type": "workbench", "icon": "assets/icon.svg", "label": "DSH-better-sidebar" }],
   "localizations": {
-    "zh-CN": { "name": "侧边工作台", "description": "文件树、文本查看 / 编辑、文件名和内容搜索、Git 状态 / diff / 暂存。精简版：没有终端、侧边对话和子代理页。" },
-    "en": { "name": "Better Sidebar", "description": "File tree, text viewer/editor, name & content search, Git status/diff/stage. Lite edition: no terminal, side chat or sub-agent pages." }
+    "zh-CN": { "name": "DSH-better-sidebar", "description": "侧边工作台：文件树、文本查看 / 编辑、文件名和内容搜索、Git 状态 / diff / 暂存。名称与 dsh market 的 DSH-better-sidebar 一致；终端、侧边对话、任务页因宿主不支持而没有。" },
+    "en": { "name": "DSH-better-sidebar", "description": "Side workbench: file tree, text viewer/editor, name & content search, Git status/diff/stage. Named after DSH-better-sidebar in dsh market; the terminal, side chat and task pages are missing because the host cannot support them." }
   },
-  "tags": ["files", "git", "editor", "workbench"]
+  "tags": ["files", "git", "editor", "workbench", "sidebar"]
 }

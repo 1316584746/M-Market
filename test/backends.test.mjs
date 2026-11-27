@@ -23,7 +23,7 @@ const hasGit = (() => {
 })();
 
 describe("握手", () => {
-  for (const id of ["context-insight", "memsearch", "billion-context", "better-sidebar"]) {
+  for (const id of ["context-insight", "memsearch", "billion-context", "better-sidebar", "grafana"]) {
     it(`${id}：返回协议版本 1 和自己的 id`, async () => {
       const p = await start(id);
       const r = await p.init();
@@ -75,6 +75,39 @@ describe("context-insight", () => {
     assert.ok(run.steps[1].comp.tool > run.steps[1].comp.user, "第 2 步 tool 输出应该是最大头");
     const msgs = await p.call("runs/messages", { name: "20260101-120000-abcd", step: 2 });
     assert.equal(msgs.length, 3);
+  });
+
+  it("外部 Agent 的工具进度算作工具调用", async () => {
+    const home = tmpdir("ci-agent");
+    fs.writeFileSync(path.join(home, "harness.config.json"), JSON.stringify({ traceDir: ".traces", providers: { cursor: { type: "cursor-sdk", model: "grok-4.7" } } }));
+    const traces = path.join(home, ".traces");
+    fs.mkdirSync(traces);
+    const now = Date.now();
+    const ev = (ts, event) => JSON.stringify({ ts, runId: "a1", event });
+    fs.writeFileSync(
+      path.join(traces, "20261124-180000-agent.jsonl"),
+      [
+        ev(now, { type: "run_start", provider: "cursor", input: "改一下侧边栏" }),
+        ev(now + 1, { type: "agent_progress", kind: "tool", line: '🔧 read {"path":"E:\\\\M-Market\\\\README.md"}' }),
+        ev(now + 2, { type: "agent_progress", kind: "tool", line: '   ✓ read → {"status":"success","value":{"content":"hello"}}' }),
+        ev(now + 3, { type: "agent_progress", kind: "tool", line: '🔧 shell {"command":"node scripts/pack.mjs","workingDirectory":"E:\\\\M-Market"}' }),
+        ev(now + 4, { type: "agent_progress", kind: "tool", line: '   ✓ shell → {"status":"success","value":{"exitCode":0,"stdout":"ok"}}' }),
+        ev(now + 5, { type: "agent_progress", kind: "thinking", line: "先看代码" }),
+        ev(now + 6, { type: "done", reason: "final", text: "好了" }),
+      ].join("\n") + "\n",
+    );
+    const p = await start("context-insight", { home });
+    const list = await p.call("runs/list");
+    assert.equal(list[0].tools, 2);
+    const ov = await p.call("insights/overview", { range: "today" });
+    assert.equal(ov.kpi.toolExec, 2);
+    assert.equal(ov.sessions[0].tools, 2);
+    assert.deepEqual(ov.tools.map(t => t.name).sort(), ["read", "shell"]);
+    assert.equal(ov.commands[0].name, "node");
+    assert.ok(ov.comp.toolcalls > 0);
+    const d = await p.call("session/get", { name: "20261124-180000-agent" });
+    assert.equal(d.stats.toolCalls, 2);
+    assert.deepEqual(d.tools.map(t => t.name).sort(), ["read", "shell"]);
   });
 
   it("拒绝越出 trace 目录的名字", async () => {
@@ -175,6 +208,28 @@ describe("better-sidebar", () => {
     await assert.rejects(p.call("fs/write", { path: "src/a.txt", content: "z", expectMtime: r.mtime }), /改过/);
     await p.call("fs/create", { path: "src/new.md" });
     assert.ok(fs.existsSync(path.join(ws, "src", "new.md")));
+  });
+
+  it("盘符根目录下的子目录仍在工作区内", async t => {
+    if (process.platform !== "win32") return t.skip("只在 Windows 上有盘符根");
+    const root = (process.env.SystemDrive || "C:") + "\\";
+    const p = await start("better-sidebar");
+    await p.call("ws/set", { path: root });
+    const l = await p.call("fs/list", { dir: "" });
+    assert.ok(l.entries.some(e => e.dir));
+    let opened = false;
+    for (const e of l.entries) {
+      if (!e.dir) continue;
+      try {
+        await p.call("fs/list", { dir: e.name });
+        opened = true;
+        break;
+      } catch (err) {
+        if (/超出了工作区/.test(String(err && err.message))) throw err;
+      }
+    }
+    assert.equal(opened, true);
+    await assert.rejects(p.call("fs/read", { path: "C:/Windows/win.ini" }), /不合法/);
   });
 
   it("搜索：文件名和内容", async () => {

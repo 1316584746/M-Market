@@ -26,23 +26,27 @@
     ["system", "系统提示词", "#8b5cf6"],
     ["tools", "工具定义", "#06b6d4"],
     ["user", "用户消息", "#3b82f6"],
-    ["injected", "注入上下文", "#ec4899"],
-    ["skill", "技能", "#f97316"],
-    ["toolcalls", "工具调用与结果", "#f59e0b"],
-    ["reasoning", "推理", "#14b8a6"],
-    ["answers", "回答", "#10b981"],
+    ["injected", "注入内容", "#ec4899"],
+    ["skill", "技能注入", "#f97316"],
+    ["toolcalls", "工具调用", "#f59e0b"],
+    ["reasoning", "模型思考", "#a855f7"],
+    ["answers", "模型回复", "#10b981"],
   ];
+  const PALETTE = ["#f97316", "#10b981", "#3b82f6", "#a855f7", "#ec4899", "#14b8a6", "#f59e0b", "#6366f1"];
   const CAT_NA = { tools: 1, injected: 1, reasoning: 1 };
   const REASON = { final: "完成", max_steps: "达到步数上限", error: "出错", aborted: "已中止", cancelled: "已取消" };
 
   const S = {
-    tab: "insights", range: "7", day: "", q: "", sort: "recent", group: "none", skill: "", tool: "", command: "",
+    tab: "insights", range: "7", from: "", to: "", day: "", heat: "tokens", bal: null, q: "", sort: "recent", group: "none", skill: "", tool: "", command: "",
     ov: null, runs: null, name: "", detail: null, step: null, msgs: null, fleet: null, seq: 0, prefs: null,
   };
 
   // ───────── 格式化 ─────────
   const fmt = n => { n = Number(n) || 0; return n >= 1e6 ? (n / 1e6).toFixed(2) + "M" : n >= 1e4 ? (n / 1e3).toFixed(1) + "k" : String(Math.round(n)); };
-  const money = c => c == null ? "—" : c === 0 ? "$0" : c < 0.01 ? "<$0.01" : "$" + c.toFixed(c < 1 ? 3 : 2);
+  // 成本内部按美元算；设置里选了人民币就按汇率折算
+  const cur = () => { const p = S.prefs || {}; return p.currency === "cny" ? { sy: "¥", fx: Number(p.fx) > 0 ? Number(p.fx) : 7.2 } : { sy: "$", fx: 1 }; };
+  const money = c => { if (c == null) return "—"; const u = cur(), v = c * u.fx; return v === 0 ? u.sy + "0" : v < 0.01 ? "<" + u.sy + "0.01" : u.sy + v.toFixed(v < 1 ? 3 : 2); };
+  const axisMoney = v => { const u = cur(), x = v * u.fx; return u.sy + (x >= 100 ? x.toFixed(0) : x >= 1 ? x.toFixed(1) : x.toFixed(2)); };
   const p2 = n => String(n).padStart(2, "0");
   const when = ts => { if (!ts) return ""; const d = new Date(ts); return p2(d.getMonth() + 1) + "-" + p2(d.getDate()) + " " + p2(d.getHours()) + ":" + p2(d.getMinutes()); };
   const dur = ms => { ms = Number(ms) || 0; if (ms < 1000) return ms + "ms"; const s = ms / 1000; if (s < 60) return s.toFixed(1) + "s"; const m = Math.floor(s / 60); if (m < 60) return m + "m" + p2(Math.round(s % 60)) + "s"; return Math.floor(m / 60) + "h" + p2(m % 60) + "m"; };
@@ -78,52 +82,95 @@
     }).join("") + "</div>";
   }
   function tile(label, value, sub, ph) {
-    return '<div class="tile' + (ph ? " ph" : "") + '"><div class="v">' + esc(value) + '</div><div class="k">' + esc(label) + "</div>" + (sub ? '<div class="sub">' + sub + "</div>" : "") + "</div>";
+    return '<div class="tile' + (ph ? " ph" : "") + '"><div class="k">' + esc(label) + '</div><div class="v">' + esc(value) + "</div>" + (sub ? '<div class="sub">' + sub + "</div>" : "") + "</div>";
   }
+  // 环形图：segs = [{v, c}]，中间两行文字
+  function donut(segs, big, small) {
+    const R = 52, C = 2 * Math.PI * R, all = segs.reduce((n, s) => n + s.v, 0);
+    let g = '<svg class="donut" viewBox="0 0 140 140"><circle cx="70" cy="70" r="' + R + '" fill="none" stroke="currentColor" opacity=".1" stroke-width="16"/>';
+    if (all > 0) {
+      let off = 0;
+      segs.forEach(s => {
+        if (s.v <= 0) return;
+        const len = (s.v / all) * C;
+        g += '<circle cx="70" cy="70" r="' + R + '" fill="none" stroke="' + s.c + '" stroke-width="16" stroke-dasharray="' + Math.max(0, len - (segs.length > 1 ? 1.5 : 0)) + " " + C + '" stroke-dashoffset="' + -off + '" transform="rotate(-90 70 70)"/>';
+        off += len;
+      });
+    }
+    return g + '<text x="70" y="68" text-anchor="middle" class="d-big">' + esc(big) + '</text><text x="70" y="86" text-anchor="middle" class="d-sm">' + esc(small) + "</text></svg>";
+  }
+  const lrow = (c, name, pctText, sub, dimmed) => '<div class="lrow' + (dimmed ? " dim" : "") + '"><i style="background:' + c + '"></i><span class="ln">' + esc(name) + '</span><b>' + esc(pctText) + '</b><span class="ls">' + esc(sub) + "</span></div>";
   const box = (title, body, cls, right) => '<section class="box ' + (cls || "") + '"><h3><span>' + esc(title) + "</span>" + (right || "") + "</h3>" + body + "</section>";
   const kv = (k, v) => '<div class="kv"><span>' + esc(k) + "</span><b>" + v + "</b></div>";
 
-  function weekChart(week) {
-    const W = 420, H = 150, L = 6, B = 22, T = 14, n = week.length;
-    const max = Math.max(1, ...week.map(w => w.tokens));
-    const slot = (W - L * 2) / n, bw = Math.min(40, slot - 10);
-    let g = '<svg class="chart" viewBox="0 0 ' + W + " " + H + '" preserveAspectRatio="none">';
-    g += '<line x1="' + L + '" x2="' + (W - L) + '" y1="' + (H - B) + '" y2="' + (H - B) + '" stroke="currentColor" opacity=".15"/>';
-    week.forEach((w, i) => {
-      const h = Math.max(w.tokens ? 2 : 0, (H - B - T) * (w.tokens / max));
-      const x = L + i * slot + (slot - bw) / 2;
-      const on = S.day === w.day;
-      g += '<g class="bar' + (on ? " on" : "") + '" data-day="' + w.day + '"><rect x="' + x + '" y="' + (H - B - h) + '" width="' + bw + '" height="' + h + '" rx="3"><title>' + esc(w.day + " · " + fmt(w.tokens) + " token" + (w.cost ? " · " + money(w.cost) : "")) + "</title></rect>";
-      if (w.tokens) g += '<text x="' + (x + bw / 2) + '" y="' + (H - B - h - 3) + '" text-anchor="middle">' + fmt(w.tokens) + "</text>";
-      g += '<text x="' + (x + bw / 2) + '" y="' + (H - 7) + '" text-anchor="middle">' + w.day.slice(5) + "</text></g>";
-    });
-    return g + "</svg>";
+  // 取一个好看的坐标轴上限：1 / 2 / 2.5 / 5 / 10 × 10^k
+  function niceMax(v) {
+    if (!(v > 0)) return 1;
+    const p = Math.pow(10, Math.floor(Math.log10(v))), f = v / p;
+    return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p;
   }
 
-  function heatmap(heat) {
-    const max = Math.max(1, ...heat.map(h => h.tokens));
+  // 双轴图：左轴 Token（蓝柱），右轴成本（绿柱，没有单价就不画）
+  function weekChart(week, priced) {
+    const W = 560, H = 210, L = 46, R = priced ? 46 : 10, B = 26, T = 12, n = week.length;
+    const maxT = niceMax(Math.max(0, ...week.map(w => w.tokens))), maxC = niceMax(Math.max(0, ...week.map(w => w.cost || 0)));
+    const slot = (W - L - R) / n, bw = Math.min(26, (slot - 8) / (priced ? 2 : 1));
+    const y = (v, m) => T + (H - T - B) * (1 - v / m);
+    let g = '<svg class="chart" viewBox="0 0 ' + W + " " + H + '">';
+    for (let i = 0; i <= 4; i++) {
+      const f = i / 4, yy = y(maxT * f, maxT);
+      g += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + yy + '" y2="' + yy + '" stroke="currentColor" opacity="' + (i ? ".1" : ".25") + '"/><text x="' + (L - 6) + '" y="' + (yy + 3) + '" text-anchor="end">' + fmt(maxT * f) + "</text>";
+      if (priced) g += '<text x="' + (W - R + 6) + '" y="' + (yy + 3) + '" text-anchor="start" class="rt">' + esc(axisMoney(maxC * f)) + "</text>";
+    }
+    week.forEach((w, i) => {
+      const x0 = L + i * slot + (slot - bw * (priced ? 2 : 1)) / 2, on = S.day === w.day;
+      const ht = Math.max(w.tokens ? 2 : 0, (H - T - B) * (w.tokens / maxT)), hc = Math.max(w.cost ? 2 : 0, (H - T - B) * ((w.cost || 0) / maxC));
+      g += '<g class="bar' + (on ? " on" : "") + '" data-day="' + w.day + '"><title>' + esc(w.day + " · " + fmt(w.tokens) + " token" + (priced ? " · " + money(w.cost || 0) : "") + (w.sessions ? " · " + t("{0} 个会话", w.sessions) : "")) + "</title>" +
+        '<rect class="hit" x="' + (L + i * slot) + '" y="' + T + '" width="' + slot + '" height="' + (H - T - B) + '" fill="transparent"/>' +
+        '<rect class="bt" x="' + x0 + '" y="' + (H - B - ht) + '" width="' + bw + '" height="' + ht + '" rx="2"/>' +
+        (priced ? '<rect class="bc" x="' + (x0 + bw) + '" y="' + (H - B - hc) + '" width="' + bw + '" height="' + hc + '" rx="2"/>' : "") +
+        '<text x="' + (L + i * slot + slot / 2) + '" y="' + (H - 8) + '" text-anchor="middle">' + w.day.slice(5) + "</text></g>";
+    });
+    return g + "</svg>" + '<div class="legend"><span><i style="background:#3b82f6"></i>Token</span>' + (priced ? '<span><i style="background:#10b981"></i>' + esc(t("估算成本")) + "</span>" : "") + "</div>";
+  }
+
+  const MONTHS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  function heatmap(heat, mode) {
+    const val = x => (mode === "sessions" ? x.sessions : x.tokens);
+    const max = Math.max(1, ...heat.map(val));
     const cols = Math.ceil(heat.length / 7);
-    let h = '<div class="heat" style="grid-template-columns:repeat(' + cols + ',22px)">';
+    let months = "", last = -1;
+    for (let c = 0; c < cols; c++) {
+      const first = heat[c * 7];
+      if (!first) continue;
+      const m = Number(first.day.slice(5, 7)) - 1;
+      if (m !== last) { months += '<span style="grid-column:' + (c + 1) + '">' + (lang === "en" ? MONTHS_EN[m] : t("{0}月", m + 1)) + "</span>"; last = m; }
+    }
+    let h = '<div class="hmonths" style="grid-template-columns:repeat(' + cols + ',1fr)">' + months + "</div>";
+    h += '<div class="heat" style="grid-template-columns:repeat(' + cols + ',1fr)">';
     for (let c = 0; c < cols; c++) for (let r = 0; r < 7; r++) {
       const x = heat[c * 7 + r];
-      if (!x) { h += "<i></i>"; continue; }
-      const lv = x.tokens ? Math.min(4, Math.ceil((x.tokens / max) * 4)) : 0;
-      h += '<i class="l' + lv + (S.day === x.day ? " on" : "") + '" data-day="' + x.day + '" style="grid-column:' + (c + 1) + ";grid-row:" + (r + 1) + '" title="' + esc(x.day + " · " + fmt(x.tokens) + " token") + '"></i>';
+      if (!x) continue;
+      const v = val(x), lv = v ? Math.min(4, Math.ceil((v / max) * 4)) : 0;
+      h += '<i class="l' + lv + (S.day === x.day ? " on" : "") + '" data-day="' + x.day + '" style="grid-column:' + (c + 1) + ";grid-row:" + (r + 1) + '" title="' + esc(x.day + " · " + t("{0} 个会话", x.sessions) + " · " + fmt(x.tokens) + " token") + '"></i>';
     }
-    return h + "</div>";
+    return h + "</div>" + '<div class="hlegend dim">' + esc(t("少")) + ' <i class="l0"></i><i class="l1"></i><i class="l2"></i><i class="l3"></i><i class="l4"></i> ' + esc(t("多")) + "</div>";
   }
 
   function rankTable(rows, kind, sel, emptyMsg) {
     if (!rows.length) return '<div class="dbx-hint">' + esc(emptyMsg) + "</div>";
     const max = Math.max(...rows.map(r => r.count));
-    return '<div class="rank">' + rows.slice(0, 12).map(r =>
-      '<div class="rk' + (sel === r.name ? " on" : "") + '" data-k="' + kind + '" data-v="' + esc(r.name) + '" title="' + esc(r.name) + '"><span class="rn">' + esc(r.name) + '</span><span class="rb"><i style="width:' + (r.count / max) * 100 + '%"></i></span><b>' + r.count + "</b></div>"
-    ).join("") + "</div>";
+    return '<div class="rank">' + rows.map((r, i) => {
+      const c = PALETTE[i % PALETTE.length];
+      return '<div class="rk' + (sel === r.name ? " on" : "") + '" data-k="' + kind + '" data-v="' + esc(r.name) + '" title="' + esc(r.name) + '"><div class="rt1"><i style="background:' + c + '"></i><span class="rn">' + esc(r.label || r.name) + '</span><b>×' + r.count + '</b></div><div class="rb"><i style="width:' + Math.max(3, (r.count / max) * 100) + "%;background:" + c + '"></i></div></div>';
+    }).join("") + "</div>";
   }
 
   // ───────── 洞察页 ─────────
   function rangeLabel(o) {
     if (o.day) return o.day;
+    if (o.range === "custom") return o.from + " → " + o.to;
+    if (o.range === "all") return t("全部记录");
     return o.range === "today" ? t("今天") : t("最近 {0} 天", o.range);
   }
 
@@ -139,38 +186,73 @@
       (s.reason ? '<span class="' + (bad ? "warn" : "ok") + '">' + esc(t(REASON[s.reason] || s.reason)) + "</span>" : '<span class="dim">' + esc(t("未结束")) + "</span>") + "</div></div>";
   }
 
+  function balanceChip(b) {
+    if (!b || b.enabled === false || (!b.available && !b.failed)) return "";
+    if (!b.available) return '<button type="button" class="chip bal err" id="bal" title="' + esc(b.reason) + '">' + esc(t("DeepSeek 余额查询失败")) + "</button>";
+    const main = b.balances.find(x => x.currency === "CNY") || b.balances[0];
+    const sy = main.currency === "CNY" ? "¥" : main.currency === "USD" ? "$" : main.currency + " ";
+    const tip = b.balances.map(x => x.currency + " " + t("充值 {0} · 赠金 {1}", x.toppedUp.toFixed(2), x.granted.toFixed(2))).join("\n") + "\n" + t("点击刷新");
+    return '<button type="button" class="chip bal' + (b.usable ? "" : " err") + '" id="bal" title="' + esc(tip) + '">DeepSeek ' + esc(t("余额")) + " " + sy + main.total.toFixed(2) + "</button>";
+  }
+
   function viewInsights() {
     const o = S.ov;
     if (!o) return '<div class="dbx-hint pad">' + esc(t("加载中…")) + "</div>";
-    const k = o.kpi;
+    const k = o.kpi, tm = o.timing || {};
     const filters = [["day", S.day, t("日期")], ["skill", S.skill, t("技能")], ["tool", S.tool, t("工具")], ["command", S.command, t("命令")]].filter(f => f[1]);
-    let h = '<div class="toolbar"><div class="seg" id="rangeSeg">' + [["today", t("今天")], ["7", t("7 天")], ["30", t("30 天")]].map(r =>
-      '<button type="button" data-r="' + r[0] + '" class="' + (!S.day && S.range === r[0] ? "on" : "") + '">' + esc(r[1]) + "</button>").join("") + "</div>" +
-      '<input id="q" class="search" type="search" placeholder="' + esc(t("搜索会话：内容 / 模型 / 名字")) + '" value="' + esc(S.q) + '" />' +
-      '<select id="sort"><option value="recent">' + esc(t("按最近活跃")) + '</option><option value="tokens">' + esc(t("按 Token 用量")) + '</option><option value="context">' + esc(t("按上下文大小")) + "</option></select>" +
-      '<select id="group"><option value="none">' + esc(t("不分组")) + '</option><option value="provider">' + esc(t("按提供方分组")) + "</option></select></div>";
+    const presetOn = r => !S.day && !S.from && S.range === r;
+    let h = '<div class="ihead"><div class="il"><button type="button" class="ghost" id="pset">⚙ ' + esc(t("插件设置")) + '</button><span id="balSlot">' + balanceChip(S.bal) + "</span></div>" +
+      '<div class="ir"><input type="date" id="dFrom" value="' + esc(o.from) + '" max="' + esc(o.today) + '" /><span class="dim">→</span><input type="date" id="dTo" value="' + esc(o.to) + '" max="' + esc(o.today) + '" />' +
+      '<div class="seg" id="rangeSeg">' + [["today", t("今天")], ["7", t("近 7 天")], ["30", t("近 30 天")], ["all", t("全部")]].map(r =>
+        '<button type="button" data-r="' + r[0] + '" class="' + (presetOn(r[0]) ? "on" : "") + '">' + esc(r[1]) + "</button>").join("") + "</div></div></div>";
     if (filters.length) h += '<div class="chips">' + esc(t("筛选")) + "：" + filters.map(f => '<span class="chip" data-clear="' + f[0] + '">' + esc(f[2] + " " + f[1]) + " ×</span>").join("") + "</div>";
 
-    h += '<div class="tiles">' +
-      tile(t("会话"), fmt(k.sessions), esc(rangeLabel(o))) +
+    // 上排：6 个指标 + 双轴用量图
+    const costSub = k.cost == null ? esc(t("没有匹配的单价")) : esc(t("{0} 个会话已计价", k.pricedSessions || 0)) + (k.agentSessions ? "<br>" + esc(t("含 {0} 个外部 Agent 会话（按过程文本估算，偏低）", k.agentSessions)) : "");
+    h += '<div class="grid2 top2"><div class="tiles">' +
+      tile(t("全部会话"), fmt(k.sessions), k.agentSessions ? esc(t("其中外部 Agent {0} 个", k.agentSessions)) : esc(rangeLabel(o))) +
       tile(t("累计 Token"), fmt(k.tokens), esc(t("输入 {0} / 输出 {1}", fmt(k.input), fmt(k.output)))) +
-      tile(t("估算成本"), money(k.cost), k.cost == null ? esc(t("没有匹配的单价")) : esc(t("按设置里各提供方的模型计价")) + (k.agentSessions ? "<br>" + esc(t("含 {0} 个外部 Agent 会话（按过程文本估算，偏低）", k.agentSessions)) : "")) +
-      tile(t("缓存命中率"), "—", none(), true) +
-      tile(t("模型调用"), fmt(k.steps), esc(t("{0} 次运行", k.turns))) +
-      tile(t("工具执行"), fmt(k.toolExec), esc(t("活跃 {0}", dur(k.activeMs)))) + "</div>";
+      tile(t("估算成本"), money(k.cost), costSub) +
+      tile(t("缓存命中率"), "—", esc(t("M-Harness 的 trace 不记录缓存命中")), true) +
+      tile(t("模型调用"), fmt(k.steps), esc(t("{0} 次运行", k.turns)) + (tm.modelMs ? "<br>" + esc(t("累计 {0}", dur(tm.modelMs))) : "")) +
+      tile(t("工具执行"), fmt(k.toolExec), (tm.toolMs ? esc(t("累计 {0}", dur(tm.toolMs))) + "<br>" : "") + esc(t("MCP {0} · 插件 {1} · 技能 {2}", k.mcpCalls || 0, k.pluginCalls || 0, k.skillUses || 0))) + "</div>" +
+      box(t("Token 和成本"), weekChart(o.week, o.anyPrice), "", '<span class="dim">' + esc(t("点柱子按天筛选")) + "</span>") + "</div>";
 
+    // 中排：Token 统计 + 耗时统计
+    const all = sum(o.comp);
+    const tokenBody = '<div class="dn"><div class="dn-c">' + donut(CATS.map(c => ({ v: o.comp[c[0]] || 0, c: c[2] })), fmt(all), t("总 Token")) + '</div><div class="dn-l two">' +
+      CATS.map(c => { const v = o.comp[c[0]] || 0; return lrow(c[2], t(c[1]), v ? pct(v, all) : "—", v ? "≈" + fmt(v) : "", !v); }).join("") + "</div></div>" +
+      '<div class="dbx-hint">' + esc(t("按计费 token 汇总：每次模型调用都会重新带上之前的上下文。")) + "</div>";
+    const totalMs = k.activeMs || 0;
+    const timeBody = totalMs > 0
+      ? '<div class="dn"><div class="dn-c">' + donut([{ v: tm.modelMs, c: "#3b82f6" }, { v: tm.toolMs, c: "#f59e0b" }, { v: tm.overheadMs, c: "#94a3b8" }], dur(totalMs), t("活跃时长")) + '</div><div class="dn-l">' +
+        lrow("#3b82f6", t("模型调用"), pct(tm.modelMs, totalMs), dur(tm.modelMs) + " · " + t("{0} 次", tm.modelCalls)) +
+        lrow("#f59e0b", t("工具调用"), pct(tm.toolMs, totalMs), dur(tm.toolMs) + " · " + t("{0} 次", tm.toolCalls)) +
+        lrow("#94a3b8", t("其他开销"), pct(tm.overheadMs, totalMs), dur(tm.overheadMs)) +
+        '<div class="speed"><span class="dim">' + esc(t("输出速度")) + "</span> <b>" + (tm.speed ? tm.speed.toFixed(1) + " tok/s" : "—") + "</b></div></div></div>" +
+        '<div class="dbx-hint">' + esc(t("模型调用没有再拆成等待 / 思考 / 回复：M-Harness 的 trace 没有流式时间戳。输出速度只统计有真实 token 用量的调用。")) + "</div>"
+      : none();
+    h += '<div class="grid2">' + box(t("Token 统计"), tokenBody) + box(t("耗时统计"), timeBody) + "</div>";
+
+    // 下排：活跃度 / 技能加载 / 工具调用 / 命令执行，再加 MCP / 插件工具
+    const tt = o.totals || {};
+    const sumTxt = (x, a, b) => '<span class="dim">' + esc(a(x ? x.n : 0) + " · " + b(x ? x.count : 0)) + "</span>";
+    const heatSeg = '<div class="seg sm" id="heatSeg">' + [["sessions", t("会话")], ["tokens", t("Token 消耗")]].map(m => '<button type="button" data-h="' + m[0] + '" class="' + (S.heat === m[0] ? "on" : "") + '">' + esc(m[1]) + "</button>").join("") + "</div>";
+    h += '<div class="grid-rank">' +
+      box(t("活跃度"), heatmap(o.heat, S.heat), "", heatSeg) +
+      box(t("技能加载"), rankTable(o.skills, "skill", S.skill, t("这段时间没有调用技能（use_skill 或读取 SKILL.md）。")), "", sumTxt(tt.skills, n => t("{0} 个技能", n), n => t("{0} 次加载", n))) +
+      box(t("工具调用"), rankTable(o.tools, "tool", S.tool, t("这段时间没有工具调用。")), "", sumTxt(tt.tools, n => t("{0} 个工具", n), n => t("{0} 次", n))) +
+      box(t("命令执行"), rankTable(o.commands, "command", S.command, t("这段时间没有执行命令（run_command）。")), "", sumTxt(tt.commands, n => t("{0} 个程序", n), n => t("{0} 次", n))) + "</div>";
     h += '<div class="grid2">' +
-      box(t("最近 7 天用量"), weekChart(o.week), "", '<span class="dim">' + esc(t("点柱子按天筛选")) + "</span>") +
-      box(t("近 8 周热力图"), heatmap(o.heat) + '<div class="hlegend dim">' + esc(t("少")) + " <i class=\"l0\"></i><i class=\"l1\"></i><i class=\"l2\"></i><i class=\"l3\"></i><i class=\"l4\"></i> " + esc(t("多")) + "</div>") + "</div>";
+      box(t("MCP 调用"), rankTable(o.mcp || [], "tool", S.tool, t("这段时间没有调用 MCP 工具（mcp__服务__工具）。")), "", sumTxt(tt.mcp, n => t("{0} 个工具", n), n => t("{0} 次", n))) +
+      box(t("插件工具"), rankTable(o.plugins || [], "tool", S.tool, t("这段时间没有调用插件工具（plugin__插件__工具）。")), "", sumTxt(tt.plugins, n => t("{0} 个工具", n), n => t("{0} 次", n))) + "</div>";
 
-    h += box(t("上下文构成"), stack(o.comp, 14) + legend(o.comp) + '<div class="dbx-hint">' + esc(t("按计费 token 汇总：每次模型调用都会重新带上之前的上下文。")) + "</div>");
-
-    h += '<div class="grid3">' +
-      box(t("技能"), rankTable(o.skills, "skill", S.skill, t("这段时间没有调用技能（use_skill）。"))) +
-      box(t("工具"), rankTable(o.tools, "tool", S.tool, t("这段时间没有工具调用。"))) +
-      box(t("命令"), rankTable(o.commands, "command", S.command, t("这段时间没有执行命令（run_command）。"))) + "</div>";
-
-    h += '<h2 class="sec">' + esc(t("会话")) + ' <span class="dim">' + esc(t("{0} 个", o.total)) + (o.total > o.sessions.length ? " · " + esc(t("仅显示前 {0} 个", o.sessions.length)) : "") + "</span></h2>";
+    // 会话列表
+    h += '<div class="sechead"><h2 class="sec">' + esc(t("会话")) + ' <span class="badge">' + o.total + "</span>" + (o.total > o.sessions.length ? ' <span class="dim">' + esc(t("仅显示前 {0} 个", o.sessions.length)) + "</span>" : "") + "</h2>" +
+      '<input id="q" class="search" type="search" placeholder="' + esc(t("搜索会话：内容 / 模型 / 名字")) + '" value="' + esc(S.q) + '" />' +
+      '<select id="group"><option value="none">' + esc(t("不分组")) + '</option><option value="provider">' + esc(t("按提供方分组")) + "</option></select>" +
+      '<div class="seg" id="sortSeg">' + [["recent", t("最近更新")], ["tokens", t("Token 总用量")], ["context", t("当前上下文")]].map(s =>
+        '<button type="button" data-s="' + s[0] + '" class="' + (S.sort === s[0] ? "on" : "") + '">' + esc(s[1]) + "</button>").join("") + "</div></div>";
     if (!o.sessions.length) h += empty(t("这段时间没有会话"), t("在 M-Harness 里跑一次任务，这里就会出现；目录不对可以到设置里修改 trace 目录。"));
     else if (S.group === "provider") {
       const groups = new Map();
@@ -181,13 +263,24 @@
   }
 
   function bindInsights() {
-    view.querySelectorAll("#rangeSeg [data-r]").forEach(b => { b.onclick = () => { S.range = b.getAttribute("data-r"); S.day = ""; rpc("prefs/set", { range: S.range }).catch(() => {}); loadOverview(); }; });
+    view.querySelectorAll("#rangeSeg [data-r]").forEach(b => { b.onclick = () => { S.range = b.getAttribute("data-r"); S.day = ""; S.from = S.to = ""; rpc("prefs/set", { range: S.range }).then(p => { S.prefs = p; }).catch(() => {}); loadOverview(); }; });
+    const dFrom = $("dFrom"), dTo = $("dTo");
+    const pickDates = () => {
+      const a = dFrom.value, b = dTo.value;
+      if (!a && !b) return;
+      S.from = a || b; S.to = b || a; S.day = ""; loadOverview();
+    };
+    if (dFrom) dFrom.onchange = pickDates;
+    if (dTo) dTo.onchange = pickDates;
     view.querySelectorAll("[data-day]").forEach(b => { b.onclick = () => { const d = b.getAttribute("data-day"); S.day = S.day === d ? "" : d; loadOverview(); }; });
     view.querySelectorAll("[data-clear]").forEach(b => { b.onclick = () => { S[b.getAttribute("data-clear")] = ""; loadOverview(); }; });
     view.querySelectorAll(".rk").forEach(b => { b.onclick = () => { const kd = b.getAttribute("data-k"), v = b.getAttribute("data-v"); S[kd] = S[kd] === v ? "" : v; loadOverview(); }; });
     view.querySelectorAll(".scard").forEach(b => { b.onclick = () => openSession(b.getAttribute("data-n")); });
-    const sort = $("sort"), group = $("group"), q = $("q");
-    if (sort) { sort.value = S.sort; sort.onchange = () => { S.sort = sort.value; loadOverview(); }; }
+    view.querySelectorAll("#heatSeg [data-h]").forEach(b => { b.onclick = () => { S.heat = b.getAttribute("data-h"); paint(); }; });
+    view.querySelectorAll("#sortSeg [data-s]").forEach(b => { b.onclick = () => { S.sort = b.getAttribute("data-s"); loadOverview(); }; });
+    const pset = $("pset"), group = $("group"), q = $("q");
+    if (pset) pset.onclick = openSettings;
+    bindBalance();
     if (group) { group.value = S.group; group.onchange = () => { S.group = group.value; paint(); }; }
     if (q) {
       let timer;
@@ -195,9 +288,21 @@
     }
   }
 
+  function bindBalance() { const b = $("bal"); if (b) b.onclick = () => loadBalance(true); }
+  // 余额只更新页头那一小块，不重绘整页（免得打断搜索输入）
+  function loadBalance(force) {
+    return rpc("balance/get", { force: !!force }, 15000).then(b => {
+      S.bal = b;
+      const slot = $("balSlot");
+      if (slot) { slot.innerHTML = balanceChip(b); bindBalance(); }
+    }).catch(() => {});
+  }
+
   function loadOverview(keepFocus) {
     const seq = ++S.seq;
-    return rpc("insights/overview", { range: S.range, day: S.day, q: S.q, sort: S.sort, skill: S.skill, tool: S.tool, command: S.command }).then(o => {
+    const p = { range: S.range, day: S.day, q: S.q, sort: S.sort, skill: S.skill, tool: S.tool, command: S.command };
+    if (!S.day && S.from && S.to) { p.from = S.from; p.to = S.to; }
+    return rpc("insights/overview", p).then(o => {
       if (seq !== S.seq) return;
       S.ov = o; paint();
       if (keepFocus && $("q")) { const q = $("q"); q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
@@ -401,7 +506,9 @@
   function renderSettings(p, env) {
     const opt = (v, cur, label) => '<option value="' + v + '"' + (v === cur ? " selected" : "") + ">" + esc(label) + "</option>";
     $("dlg").innerHTML = '<h3>' + esc(t("设置")) + "</h3>" +
-      '<div class="frow"><label>' + esc(t("默认时间范围")) + '</label><select id="sRange">' + opt("today", p.range, t("今天")) + opt("7", p.range, t("7 天")) + opt("30", p.range, t("30 天")) + "</select></div>" +
+      '<div class="frow"><label>' + esc(t("默认时间范围")) + '</label><select id="sRange">' + opt("today", p.range, t("今天")) + opt("7", p.range, t("7 天")) + opt("30", p.range, t("30 天")) + opt("all", p.range, t("全部")) + "</select></div>" +
+      '<div class="frow" style="grid-template-columns:120px 1fr 90px"><label>' + esc(t("成本货币")) + '</label><select id="sCur">' + opt("usd", p.currency, "USD ($)") + opt("cny", p.currency, "CNY (¥)") + '</select><input id="sFx" type="number" step="any" min="0.1" title="' + esc(t("汇率：1 美元 = ? 人民币")) + '" value="' + esc(p.fx) + '" /></div>' +
+      '<div class="frow col"><label class="chk"><input type="checkbox" id="sBal"' + (p.balance !== false ? " checked" : "") + " /> " + esc(t("在页头显示 DeepSeek 余额")) + '</label><div class="dim">' + esc(t("会把 M-Harness 配置里 DeepSeek 提供方的 key 发给 api.deepseek.com 查余额（只发这一个地址，key 不会显示在界面里）。取消勾选就不会联网。")) + "</div></div>" +
       '<div class="frow"><label>' + esc(t("默认排序")) + '</label><select id="sSort">' + opt("recent", p.sort, t("按最近活跃")) + opt("tokens", p.sort, t("按 Token 用量")) + opt("context", p.sort, t("按上下文大小")) + "</select></div>" +
       '<div class="frow"><label>' + esc(t("会话分组")) + '</label><select id="sGroup">' + opt("none", p.group, t("不分组")) + opt("provider", p.group, t("按提供方分组")) + "</select></div>" +
       '<div class="frow col"><label>' + esc(t("trace 目录")) + '</label><input id="sDir" placeholder="' + esc(env.active || "") + '" value="' + esc(env.override || "") + '" /><div class="dim">' + esc(t("当前：{0}（留空 = 自动查找）", env.active || t("没有找到 trace 目录"))) + "</div></div>" +
@@ -415,9 +522,10 @@
     $("sSave").onclick = () => {
       const prices = [...$("prices").querySelectorAll(".prow")].map(r => ({ match: r.querySelector(".pm").value.trim(), in: Number(r.querySelector(".pi").value) || 0, out: Number(r.querySelector(".po").value) || 0 })).filter(x => x.match);
       const dir = $("sDir").value.trim();
-      rpc("env/setTraceDir", { dir }).then(() => rpc("prefs/set", { range: $("sRange").value, sort: $("sSort").value, group: $("sGroup").value, prices })).then(r => {
-        S.range = r.range; S.sort = r.sort; S.group = r.group; S.day = ""; closeModal(); toast(t("已保存"));
+      rpc("env/setTraceDir", { dir }).then(() => rpc("prefs/set", { range: $("sRange").value, sort: $("sSort").value, group: $("sGroup").value, currency: $("sCur").value, fx: Number($("sFx").value) || 7.2, balance: $("sBal").checked, prices })).then(r => {
+        S.prefs = r; S.range = r.range; S.sort = r.sort; S.group = r.group; S.day = ""; S.from = S.to = ""; closeModal(); toast(t("已保存"));
         refresh();
+        if (S.tab === "insights") loadBalance(true);
       }).catch(e => toast(errText(e), true));
     };
   }
@@ -468,5 +576,5 @@
   document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
 
   paintTabs();
-  rpc("prefs/get").then(p => { S.prefs = p; S.range = p.range; S.sort = p.sort; S.group = p.group; }).catch(() => {}).then(loadOverview);
+  rpc("prefs/get").then(p => { S.prefs = p; S.range = p.range; S.sort = p.sort; S.group = p.group; }).catch(() => {}).then(() => { loadOverview().then(() => loadBalance()); });
 })();

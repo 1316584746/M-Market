@@ -31,11 +31,13 @@ The first time a plugin with a backend process runs, M-Harness asks you to trust
 | **Plugin Market** (`market`) | Multi-source catalogs, search / categories / sorting, one-click install / update / uninstall, favorites, groups, notes, themes tab, backup and restore, diagnostics log | `market_search` `market_installed` `market_install` |
 | **GitHub** (`github`) | Repositories, file browse and edit-commit, Issues, Pull Requests (diff / review / merge), Actions, Releases, branches; **includes write operations** | 8 read-only + 10 write tools (`github_issue_create` `github_pull_merge` `github_file_write` …) |
 | **MemSearch** (`memsearch`) | Long-term memory as Markdown, offline keyword (BM25) search, mountable note folders | `memory_search` `memory_recent` `memory_add` |
-| **Context Insight** (`context-insight`) | Reads M-Harness traces: token trend, context composition, compaction events, tool-output usage | `context_runs` `context_stats` |
+| **Context Insight** (`context-insight`) | Reads M-Harness traces: insights page (KPIs, token & cost chart, token / time breakdown, activity heatmap, skill / tool / command rankings, session cards), token trend, context composition, compaction events; optional DeepSeek balance in the header (sends your DeepSeek provider key to `api.deepseek.com` only; can be switched off) | `context_runs` `context_stats` `context_overview` |
 | **billion-context** (`billion-context`) | Manager for the [billion-context](https://github.com/ranxianglei/billion-context) compression proxy: install / start / stop, per-provider proxy URLs | — |
-| **Better Sidebar** (`better-sidebar`) | File tree, view / edit, name and content search, Git status / diff / stage | — |
+| **DSH-better-sidebar** (`better-sidebar`) | File tree, view / edit, name and content search, Git status / diff / stage | — |
+| **Grafana** (`grafana`) | Read-only console for your own Grafana: org and health, firing alerts, dashboard search and panel lists | `grafana_status` `grafana_alerts` `grafana_dashboards` `grafana_dashboard` |
+| **modsearch** (`modsearch`) | Web search and page reading for the AI: Firecrawl / Keenable / You.com work with no signup, Tavily / Exa join once you add a key; automatic multi-engine failover, multi-key rotation, quota cooldown, private-network guard, paged reading of long pages | `web_search` `x_search` `read_page` `modsearch_doctor` |
 
-All six are **one package for all three platforms**: the backend is a Node script (`.cjs`) run by the Node bundled with M-Harness; nothing is compiled per OS.
+All seven are **one package for all three platforms**: the backend is a Node script (`.cjs`) run by the Node bundled with M-Harness; nothing is compiled per OS.
 
 ## What the market does
 
@@ -65,7 +67,7 @@ All six are **one package for all three platforms**: the backend is a Node scrip
 - Packages are verified against the catalog sha256 and the in-package `checksums.json`; extraction rejects `..` and absolute paths
 - Downloads must be https (loopback excepted) and come from the catalog's host or `raw.githubusercontent.com` / `github.com` / `objects.githubusercontent.com` / `cdn.jsdelivr.net` / `dl.dbxio.com`
 - Plugin UIs run in a sandboxed iframe; network access is limited to the origins declared as `host.network:` in the manifest
-- **Tokens and passwords are stored in plain text** in the plugin's data directory (the sandbox has no keychain): the market's WebDAV password / Gist token and the GitHub plugin's personal access token. Use minimal-scope fine-grained tokens. Backups never contain them.
+- **Tokens and passwords are stored in plain text** in the plugin's data directory (the sandbox has no keychain): the market's WebDAV password / Gist token, the GitHub plugin's personal access token, the Grafana plugin's service-account token, and modsearch's engine API keys. Use minimal-scope fine-grained tokens. Backups never contain them.
 - The GitHub plugin's AI write tools change your repositories for real; do not enable them if you do not want the AI to act
 - Listed does not mean endorsed: plugins are third-party code
 

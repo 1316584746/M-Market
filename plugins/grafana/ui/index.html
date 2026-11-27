@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Grafana</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="logo"></span>Grafana</div>
+  <span class="chip" id="chip">未连接</span>
+  <nav class="tabs" id="tabs">
+    <button type="button" data-t="home" class="on">总览</button>
+    <button type="button" data-t="alerts">告警</button>
+    <button type="button" data-t="dash">仪表盘</button>
+    <button type="button" data-t="conn">连接</button>
+  </nav>
+  <button class="dbx-btn" id="refresh" type="button">刷新</button>
+</header>
+<main id="view"></main>
+<script src="app.js"></script>
+</body>
+</html>

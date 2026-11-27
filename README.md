@@ -33,9 +33,11 @@ https://raw.githubusercontent.com/1316584746/M-Market/HEAD/catalog/index.json
 | **MemSearch 长期记忆**（`memsearch`） | 记忆存成 Markdown，离线关键词（BM25）检索，可挂载自己的笔记目录 | `memory_search` `memory_recent` `memory_add` |
 | **上下文洞察**（`context-insight`） | 读 M-Harness 的 trace：token 走势、上下文构成、压缩事件、工具输出占用 | `context_runs` `context_stats` |
 | **billion-context**（`billion-context`） | 管理 [billion-context](https://github.com/ranxianglei/billion-context) 压缩代理：安装 / 启动 / 停止，换算各模型提供方的代理地址 | — |
-| **侧边工作台**（`better-sidebar`） | 文件树、查看 / 编辑、文件名和内容搜索、Git 状态 / diff / 暂存 | — |
+| **DSH-better-sidebar**（`better-sidebar`） | 文件树、查看 / 编辑、文件名和内容搜索、Git 状态 / diff / 暂存 | — |
+| **Grafana**（`grafana`） | 只读连接你自己的 Grafana：组织与健康状态、正在触发的告警、仪表盘搜索和面板列表 | `grafana_status` `grafana_alerts` `grafana_dashboards` `grafana_dashboard` |
+| **modsearch**（`modsearch`） | 给 AI 联网搜索和读网页：Firecrawl / Keenable / You.com 免注册可用，Tavily / Exa 填 key 后加入；多引擎自动故障转移、多 key 轮换、配额冷却、内网防护；长页面分段读取 | `web_search` `x_search` `read_page` `modsearch_doctor` |
 
-六个插件都是 **一个包三个系统通用**（Windows / macOS / Linux）：后台程序是 Node 脚本（`.cjs`），由 M-Harness 自带的 Node 运行，不用按系统编译。
+七个插件都是 **一个包三个系统通用**（Windows / macOS / Linux）：后台程序是 Node 脚本（`.cjs`），由 M-Harness 自带的 Node 运行，不用按系统编译。
 
 ## 插件市场能做什么
 
@@ -68,7 +70,7 @@ https://raw.githubusercontent.com/1316584746/M-Market/HEAD/catalog/index.json
 - 下载只能是 https（本机地址除外），并且只能来自目录所在站点或 `raw.githubusercontent.com` / `github.com` / `objects.githubusercontent.com` / `cdn.jsdelivr.net` / `dl.dbxio.com`
 - 插件的界面跑在沙箱 iframe 里，网络访问只放行清单里用 `host.network:` 声明过的域名
 - 插件申请的权限会在安装前原样展示
-- **令牌和密码是明文存的**：市场的 WebDAV 密码 / Gist 令牌、GitHub 插件的 Personal Access Token，都明文放在插件自己的数据目录里（沙箱里没有系统钥匙串）。请用最小权限的细粒度令牌。备份文件里不含它们。
+- **令牌和密码是明文存的**：市场的 WebDAV 密码 / Gist 令牌、GitHub 插件的 Personal Access Token、Grafana 插件的服务账号令牌、modsearch 的各引擎 API key，都明文放在插件自己的数据目录里（沙箱里没有系统钥匙串）。请用最小权限的细粒度令牌。备份文件里不含它们。
 - GitHub 插件的 AI 写操作工具会真的改你的仓库（合并 PR、提交文件、发 Release 等），不想让 AI 动手就别在「让 AI 使用插件」里勾上它
 - 收录不等于背书：插件都是第三方代码，只装你信任的作者的
 
@@ -121,14 +123,17 @@ node scripts/dev-ui.mjs market  # 在浏览器里调市场界面（github / 其�
 
 ## 它们和上游的关系
 
-这些插件**不是**上游项目的移植，而是参考上游的产品思路、针对 M-Harness 的插件宿主重新写的精简版：
+除了 modsearch，这些插件**不是**上游项目的移植，而是参考上游的产品思路、针对 M-Harness 的插件宿主重新写的精简版：
+
+- modsearch：[liustack/modsearch](https://github.com/liustack/modsearch)（MIT）的 CommonJS 移植版，引擎路由、故障转移、多 key 轮换、配额冷却、内网防护的行为按原项目复刻，代码为重新实现。**没有**移植 Antigravity CLI 和 Grok Build（X 搜索）两个要拉起外部命令行的引擎，所以 `x_search` 只能用网页搜索代答并标明是二手证据；也没有跟随系统代理的网络层。搜索词和云端读网页的网址会发给所选引擎的服务，不想发就在设置里关掉云端读网页。
 
 - MemSearch：参考 [zilliztech/memsearch](https://github.com/zilliztech/memsearch)（MIT）的「Markdown 是事实来源」。没有向量检索 / Milvus，只有关键词检索。**不会**在每次对话前后自动读写记忆（M-Harness 目前没有生命周期钩子），需要 AI 主动调用工具；界面里附了一段可加到「规则」里的提示词。
 - 上下文洞察：参考公开的同类上下文分析工具的产品思路，代码完全为 M-Harness 的 trace 格式重写。只有 trace 里有的数据：没有缓存命中率和 Agent 父子网络；token 数模型返回了就用真实值，否则估算；费用按「设置」里各模型 / Agent 提供方对应的模型计价（见插件设置）。
 - billion-context：只是管理器，不含它的代码。使用它须遵守其许可证的「产品出处标注」条款，插件界面底部和 `NOTICE.md` 已标注。
-- 侧边工作台：参考公开的同类侧边栏插件的产品形态。**没有**终端、侧边对话、子代理页，没有语法高亮。
+- DSH-better-sidebar：名称沿用 dsh market 里的 [DSH-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar)（MIT），产品形态参考它，代码重新编写。**没有**终端、侧边对话、任务页（子代理拓扑、后台任务）、按会话独立的布局和 `ctx.betterSidebar` 扩展服务：这些依赖 DSH 的网页、会话和终端服务，M-Harness 的插件宿主没有。也没有语法高亮、Git Graph。
 - 插件市场：功能范围和限制见上面「插件市场能做什么」和「已知限制」。
 - GitHub：直接调 GitHub REST API。
+- Grafana：只调用用户自己的 Grafana HTTP API（组织、告警、仪表盘、注释），只读。不含 Grafana 的代码；Grafana 本体是 AGPL-3.0。
 
 ## 许可
 

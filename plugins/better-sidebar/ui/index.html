@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Better Sidebar</title>
+<title>DSH-better-sidebar</title>
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -14,11 +14,14 @@
   <button class="dbx-btn" id="refresh" title="刷新文件树和 Git 状态">刷新</button>
 </header>
 <div class="editdir" id="editroot" hidden>
-  <input class="dbx-input" id="rootin" placeholder="工作区目录的完整路径" list="cands" />
-  <datalist id="cands"></datalist>
-  <button class="dbx-btn dbx-btn--primary" id="rootok">打开</button>
-  <button class="dbx-btn" id="rootcancel">取消</button>
-  <span class="warn" id="rooterr"></span>
+  <div class="editrow">
+    <input class="dbx-input" id="rootin" placeholder="输入完整路径，或点下面的目录" />
+    <button class="dbx-btn dbx-btn--primary" id="rootok">打开</button>
+    <button class="dbx-btn" id="rootcancel">取消</button>
+    <span class="warn" id="rooterr"></span>
+  </div>
+  <div class="candcap">可选目录</div>
+  <ul class="candlist" id="candlist"></ul>
 </div>
 <div class="body" id="body">
   <aside class="side" id="side">

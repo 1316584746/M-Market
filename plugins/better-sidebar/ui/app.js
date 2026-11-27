@@ -16,7 +16,8 @@
     active: null,
     git: null,
     sideTab: "files",
-    msgTimer: null
+    msgTimer: null,
+    cands: []
   };
 
   function toast(text, bad) {
@@ -30,19 +31,65 @@
 
   // ───────── 工作区 ─────────
 
+  // 不用 datalist：输入框预填当前路径时，浏览器按前缀过滤，其它目录会被藏起来；Windows 路径里的 \ 也经常点不中。
+  function samePath(a, b) {
+    if (!a || !b) return false;
+    var norm = function (p) { return String(p).replace(/\//g, "\\").replace(/\\+$/, "").toLowerCase(); };
+    return norm(a) === norm(b);
+  }
+  function renderCands() {
+    var box = $("candlist");
+    var q = $("rootin").value.trim();
+    var showAll = !q || samePath(q, S.root);
+    var list = (S.cands || []).filter(function (c) {
+      if (showAll) return true;
+      var s = q.toLowerCase();
+      return c.path.toLowerCase().indexOf(s) >= 0 || (c.why && c.why.toLowerCase().indexOf(s) >= 0);
+    });
+    if (!list.length) {
+      box.innerHTML = '<li class="cand muted"><span class="dbx-hint">没有匹配的目录。输入完整路径后点「打开」。</span></li>';
+      return;
+    }
+    box.innerHTML = list.map(function (c) {
+      return '<li class="cand' + (samePath(c.path, q) ? " on" : "") + '" data-path="' + esc(c.path) + '"><span class="p" title="' + esc(c.path) + '">' + esc(c.path) + '</span><span class="why">' + esc(c.why) + "</span></li>";
+    }).join("");
+  }
+
   function loadWs() {
     return call("ws/get").then(function (w) {
       S.root = w.root;
+      S.cands = w.candidates || [];
       $("root").textContent = w.root || "（未选择）";
       $("root").title = w.root;
-      $("cands").innerHTML = w.candidates.map(function (c) { return '<option value="' + esc(c.path) + '">' + esc(c.why) + "</option>"; }).join("");
+      renderCands();
       if (!w.root) { $("editroot").hidden = false; return; }
       S.cache = {}; S.expanded = { "": true };
       return Promise.all([loadDir(""), refreshGit()]);
     }).catch(fail);
   }
 
-  $("chroot").addEventListener("click", function () { $("editroot").hidden = !$("editroot").hidden; $("rooterr").textContent = ""; $("rootin").value = S.root; $("rootin").focus(); });
+  $("chroot").addEventListener("click", function () {
+    var opening = $("editroot").hidden;
+    $("editroot").hidden = !opening;
+    $("rooterr").textContent = "";
+    if (!opening) return;
+    $("rootin").value = S.root;
+    renderCands();
+    $("rootin").focus();
+    $("rootin").select();
+  });
+  $("rootin").addEventListener("input", renderCands);
+  $("rootin").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { e.preventDefault(); $("rootok").click(); }
+    else if (e.key === "Escape") $("editroot").hidden = true;
+  });
+  $("candlist").addEventListener("click", function (e) {
+    var el = e.target.closest && e.target.closest(".cand[data-path]");
+    if (!el) return;
+    $("rootin").value = el.getAttribute("data-path");
+    $("rooterr").textContent = "";
+    renderCands();
+  });
   $("rootcancel").addEventListener("click", function () { $("editroot").hidden = true; });
   $("rootok").addEventListener("click", function () {
     call("ws/set", { path: $("rootin").value.trim() }).then(function () {

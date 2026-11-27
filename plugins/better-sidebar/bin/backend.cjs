@@ -54,9 +54,16 @@ function setRoot(p) {
 }
 
 const inside = (base, p) => {
-  const b = path.resolve(base);
-  const f = path.resolve(p);
-  return f === b || f.startsWith(b + path.sep);
+  let b = path.resolve(base);
+  let f = path.resolve(p);
+  // 盘符根（E:\）自己就以分隔符结尾，再拼一个分隔符会变成 E:\\，子目录全被当成越界
+  if (process.platform === "win32") {
+    b = b.toLowerCase();
+    f = f.toLowerCase();
+  }
+  if (f === b) return true;
+  const prefix = b.endsWith(path.sep) ? b : b + path.sep;
+  return f.startsWith(prefix);
 };
 
 /** 相对路径 → 根目录内的绝对路径；跑出根目录（含符号链接）就报错 */

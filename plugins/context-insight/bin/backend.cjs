@@ -93,6 +93,7 @@ function summarize(file) {
       sum.tokens += e.reply?.usage?.total ?? e.tokens ?? 0;
     } else if (e.type === "context_trim") sum.trims++;
     else if (e.type === "tool_call") sum.tools++;
+    else if (e.type === "agent_progress" && e.kind === "tool" && String(e.line || "").trim().startsWith("🔧")) sum.tools++;
     else if (e.type === "done") sum.reason = e.reason || "";
   }
   return sum;
@@ -241,7 +242,11 @@ const insight = createInsight({
 
 const PREF_KEYS = {
   lang: v => (v === "en" ? "en" : "zh"),
-  range: v => (["today", "7", "30"].includes(String(v)) ? String(v) : "7"),
+  range: v => (["today", "7", "30", "all"].includes(String(v)) ? String(v) : "7"),
+  // 成本内部一律按美元算；选人民币就按这个汇率折算显示
+  currency: v => (v === "cny" ? "cny" : "usd"),
+  fx: v => (Number(v) >= 0.1 && Number(v) <= 100 ? Number(v) : 7.2),
+  balance: v => v !== false,
   sort: v => (["recent", "tokens", "context"].includes(v) ? v : "recent"),
   group: v => (v === "provider" ? "provider" : "none"),
   prices: v => (Array.isArray(v) ? v.filter(x => x && String(x.match || "").trim()).slice(0, 40).map(x => ({ match: String(x.match).trim(), in: Number(x.in) || 0, out: Number(x.out) || 0 })) : []),
@@ -255,6 +260,36 @@ const prefs = () => {
 
 const fmtTok = n => (n >= 1e6 ? (n / 1e6).toFixed(2) + "M" : n >= 1e4 ? (n / 1e3).toFixed(1) + "k" : String(Math.round(n)));
 const fmtCost = c => (c == null ? "—" : c < 0.01 ? "<$0.01" : "$" + c.toFixed(2));
+
+// ───────── DeepSeek 余额 ─────────
+// 只在 M-Harness 配置里有指向 https://api.deepseek.com 的提供方、且能解出 key 时才查，key 只发给这个地址，也不会返回给界面。
+// 查一次缓存 5 分钟；设置里可以关掉。
+
+const expandEnv = v => (typeof v === "string" ? v.replace(/\$\{([A-Z0-9_]+)\}/gi, (_, k) => process.env[k] ?? "") : "");
+let balanceCache = { at: 0, value: null };
+
+async function deepseekBalance(force) {
+  if (store.get().balance === false) return { enabled: false };
+  if (!force && balanceCache.value && Date.now() - balanceCache.at < 5 * 60_000) return balanceCache.value;
+  const cfg = harnessConfig(harnessHome());
+  const prov = Object.values(cfg.providers || {}).find(p => p && /^https:\/\/api\.deepseek\.com(\/|$)/i.test(String(p.baseURL || "")) && expandEnv(p.apiKey).trim());
+  let value;
+  if (!prov) value = { enabled: true, available: false, reason: "没有找到可用的 DeepSeek 提供方或 key" };
+  else {
+    try {
+      const res = await fetch("https://api.deepseek.com/user/balance", { headers: { accept: "application/json", authorization: `Bearer ${expandEnv(prov.apiKey).trim()}` }, signal: AbortSignal.timeout(8000) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const j = await res.json();
+      const infos = Array.isArray(j.balance_infos) ? j.balance_infos : [];
+      const balances = infos.map(b => ({ currency: String(b.currency || ""), total: Number(b.total_balance) || 0, granted: Number(b.granted_balance) || 0, toppedUp: Number(b.topped_up_balance) || 0 })).filter(b => b.currency);
+      value = balances.length ? { enabled: true, available: true, usable: j.is_available === true, balances } : { enabled: true, available: false, reason: "返回里没有余额信息" };
+    } catch (e) {
+      value = { enabled: true, available: false, failed: true, reason: `查询失败：${e instanceof Error ? e.message : String(e)}` };
+    }
+  }
+  balanceCache = { at: Date.now(), value };
+  return value;
+}
 
 // ───────── 给 AI 的文字报告 ─────────
 
@@ -299,6 +334,7 @@ serve({
     "runs/messages": async p => stepMessages(fileOf(p.name), Number(p.step), Number(p.limit) || 200),
     // 洞察页 / Context 详情
     "insights/overview": async p => insight.overview(p || {}),
+    "balance/get": async p => deepseekBalance(!!(p && p.force)),
     "session/get": async p => insight.detail(fileOf(p.name)),
     "session/messages": async p => insight.messages(fileOf(p.name), Number(p.step)),
     "prefs/get": async () => ({ ...prefs(), prices: store.get().prices || [], builtin: insight.PRICES.map(x => ({ match: x[0].source, in: x[1], out: x[2] })) }),
@@ -314,12 +350,12 @@ serve({
       name: "context_overview",
       description: "洞察总览：最近一段时间（today / 7 / 30 天）的会话数、token 用量与成本估算、最常用的技能 / 工具 / 命令、上下文构成。",
       readOnly: true,
-      inputSchema: { type: "object", properties: { range: { type: "string", description: "today / 7 / 30，默认 7" } } },
+      inputSchema: { type: "object", properties: { range: { type: "string", description: "today / 7 / 30 / all，默认 7" } } },
       run: async a => {
         const o = insight.overview({ range: a.range });
         const k = o.kpi;
         if (!k.sessions) return "这段时间没有 trace 记录。";
-        const L = [`最近 ${o.range === "today" ? "今天" : o.range + " 天"}：${k.sessions} 个会话、${k.steps} 次模型调用、${k.toolExec} 次工具执行；累计 ${fmtTok(k.tokens)} token（输入 ${fmtTok(k.input)} / 输出 ${fmtTok(k.output)}），估算成本 ${fmtCost(k.cost)}`];
+        const L = [`${o.range === "today" ? "今天" : o.range === "all" ? "全部记录" : "最近 " + o.range + " 天"}：${k.sessions} 个会话、${k.steps} 次模型调用、${k.toolExec} 次工具执行；累计 ${fmtTok(k.tokens)} token（输入 ${fmtTok(k.input)} / 输出 ${fmtTok(k.output)}），估算成本 ${fmtCost(k.cost)}`];
         const all = Object.values(o.comp).reduce((n, v) => n + v, 0) || 1;
         L.push("上下文构成：" + insight.CATS.map(c => `${c} ${Math.round((o.comp[c] / all) * 100)}%`).join("、"));
         if (o.tools.length) L.push("常用工具：" + o.tools.slice(0, 6).map(x => `${x.name}×${x.count}`).join("、"));

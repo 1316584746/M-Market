@@ -1,0 +1,38 @@
+{
+  "id": "grafana",
+  "name": "Grafana",
+  "version": "0.1.0",
+  "description": "只读连接你自己的 Grafana：组织与健康状态、正在触发的告警、仪表盘搜索和面板列表。服务账号令牌只留在本机。",
+  "publisher": "M-Market",
+  "license": "MIT",
+  "homepage": "https://github.com/1316584746/M-Market",
+  "icon": "assets/icon.svg",
+  "permissions": ["net.connect:https", "net.connect:http"],
+  "entrypoints": {
+    "backend": { "executable": "bin/backend.cjs" },
+    "ui": { "root": "ui", "entry": "ui/index.html" }
+  },
+  "contributions": [
+    { "type": "workbench", "icon": "assets/icon.svg", "label": "Grafana" },
+    {
+      "type": "mcp",
+      "tools": {
+        "grafana_status": { "description": "查看 Grafana 是否已连接，以及组织和版本" },
+        "grafana_alerts": { "description": "列出当前告警" },
+        "grafana_dashboards": { "description": "搜索仪表盘" },
+        "grafana_dashboard": { "description": "查看一个仪表盘的面板列表" }
+      }
+    }
+  ],
+  "localizations": {
+    "zh-CN": {
+      "name": "Grafana",
+      "description": "只读连接你自己的 Grafana：组织与健康状态、正在触发的告警、仪表盘搜索和面板列表。服务账号令牌只留在本机。"
+    },
+    "en": {
+      "name": "Grafana",
+      "description": "Read-only console for your own Grafana: org and health, firing alerts, dashboard search and panel lists. The service-account token stays on this machine."
+    }
+  },
+  "tags": ["grafana", "monitoring", "alerts", "dashboard"]
+}

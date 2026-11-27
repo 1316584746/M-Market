@@ -4,9 +4,9 @@
   "plugins": [
     {
       "id": "better-sidebar",
-      "name": "Better Sidebar",
+      "name": "DSH-better-sidebar",
       "publisher": "M-Market",
-      "description": "侧边工作台（精简版）：文件树、文本查看 / 编辑、文件名和内容搜索、Git 状态 / diff / 暂存。",
+      "description": "侧边工作台：文件树、文本查看 / 编辑、文件名和内容搜索、Git 状态 / diff / 暂存。名称与 dsh market 的 DSH-better-sidebar 一致；终端、侧边对话、任务页因宿主不支持而没有。",
       "license": "MIT",
       "homepage": "https://github.com/1316584746/M-Market",
       "icon": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/plugins/better-sidebar/assets/icon.svg",
@@ -15,36 +15,37 @@
         "files",
         "git",
         "editor",
-        "workbench"
+        "workbench",
+        "sidebar"
       ],
       "permissions": [
         "fs.read",
         "fs.write",
         "process.spawn:git"
       ],
-      "latestVersion": "0.1.1",
+      "latestVersion": "0.1.4",
       "versions": [
         {
-          "version": "0.1.1",
-          "releasedAt": "2026-11-19",
+          "version": "0.1.4",
+          "releasedAt": "2026-11-27",
           "artifacts": [
             {
               "target": "universal",
-              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/better-sidebar-0.1.1.dbxp",
-              "sha256": "8dde7c7e551d2d423802ea217bf24bd587fad3014b1be54e91987c8b4750c054",
-              "size": 16992
+              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/better-sidebar-0.1.4.dbxp",
+              "sha256": "10aaf06ce26111967d8cc72fb9162356474089920624688b610bce9e9ac72367",
+              "size": 18128
             }
           ]
         }
       ],
       "localizations": {
         "zh-CN": {
-          "name": "侧边工作台",
-          "description": "文件树、文本查看 / 编辑、文件名和内容搜索、Git 状态 / diff / 暂存。精简版：没有终端、侧边对话和子代理页。"
+          "name": "DSH-better-sidebar",
+          "description": "侧边工作台：文件树、文本查看 / 编辑、文件名和内容搜索、Git 状态 / diff / 暂存。名称与 dsh market 的 DSH-better-sidebar 一致；终端、侧边对话、任务页因宿主不支持而没有。"
         },
         "en": {
-          "name": "Better Sidebar",
-          "description": "File tree, text viewer/editor, name & content search, Git status/diff/stage. Lite edition: no terminal, side chat or sub-agent pages."
+          "name": "DSH-better-sidebar",
+          "description": "Side workbench: file tree, text viewer/editor, name & content search, Git status/diff/stage. Named after DSH-better-sidebar in dsh market; the terminal, side chat and task pages are missing because the host cannot support them."
         }
       }
     },
@@ -110,19 +111,20 @@
         "cost"
       ],
       "permissions": [
-        "fs.read"
+        "fs.read",
+        "net.connect:https"
       ],
-      "latestVersion": "0.2.1",
+      "latestVersion": "0.3.0",
       "versions": [
         {
-          "version": "0.2.1",
-          "releasedAt": "2026-11-19",
+          "version": "0.3.0",
+          "releasedAt": "2026-11-27",
           "artifacts": [
             {
               "target": "universal",
-              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/context-insight-0.2.1.dbxp",
-              "sha256": "67cea7b4aee4615507c551801b20aa51b9a884513a41ff5fd4cce198bec516ba",
-              "size": 39091
+              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/context-insight-0.3.0.dbxp",
+              "sha256": "5509aa0eb503eb7c914a52065e91a0ad8080bc4d1fa499860bd2bd1bda38a3f2",
+              "size": 48819
             }
           ]
         }
@@ -181,6 +183,51 @@
         "en": {
           "name": "GitHub",
           "description": "GitHub console for M-Harness: repositories, files (read/edit/delete), branches, issues, pull requests (review/merge), Actions and releases, with AI tools for both reading and writing."
+        }
+      }
+    },
+    {
+      "id": "grafana",
+      "name": "Grafana",
+      "publisher": "M-Market",
+      "description": "只读连接你自己的 Grafana：组织与健康状态、正在触发的告警、仪表盘搜索和面板列表。服务账号令牌只留在本机。",
+      "license": "MIT",
+      "homepage": "https://github.com/1316584746/M-Market",
+      "icon": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/plugins/grafana/assets/icon.svg",
+      "source": "https://github.com/1316584746/M-Market",
+      "tags": [
+        "grafana",
+        "monitoring",
+        "alerts",
+        "dashboard"
+      ],
+      "permissions": [
+        "net.connect:https",
+        "net.connect:http"
+      ],
+      "latestVersion": "0.1.0",
+      "versions": [
+        {
+          "version": "0.1.0",
+          "releasedAt": "2026-11-24",
+          "artifacts": [
+            {
+              "target": "universal",
+              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/grafana-0.1.0.dbxp",
+              "sha256": "231e628c1c1cf62612760d9dee2b36acc704b218e4465de848e47d320fc9cf3e",
+              "size": 14456
+            }
+          ]
+        }
+      ],
+      "localizations": {
+        "zh-CN": {
+          "name": "Grafana",
+          "description": "只读连接你自己的 Grafana：组织与健康状态、正在触发的告警、仪表盘搜索和面板列表。服务账号令牌只留在本机。"
+        },
+        "en": {
+          "name": "Grafana",
+          "description": "Read-only console for your own Grafana: org and health, firing alerts, dashboard search and panel lists. The service-account token stays on this machine."
         }
       }
     },
@@ -278,6 +325,54 @@
         "en": {
           "name": "MemSearch",
           "description": "Long-term memory for M-Harness: Markdown storage, offline keyword search, mountable note folders, and memory_search / memory_add tools for the AI."
+        }
+      }
+    },
+    {
+      "id": "modsearch",
+      "name": "modsearch",
+      "publisher": "M-Market",
+      "description": "给 AI 联网搜索和读网页：多个引擎自动故障转移，开箱即用、不用注册。支持多 key 轮换、配额冷却、内网防护。移植自 liustack/modsearch。",
+      "license": "MIT",
+      "homepage": "https://github.com/1316584746/M-Market",
+      "icon": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/plugins/modsearch/assets/icon.svg",
+      "source": "https://github.com/1316584746/M-Market",
+      "tags": [
+        "search",
+        "web",
+        "fetch",
+        "firecrawl",
+        "keenable",
+        "tavily",
+        "exa"
+      ],
+      "permissions": [
+        "net.connect:https",
+        "net.connect:http"
+      ],
+      "latestVersion": "0.1.0",
+      "versions": [
+        {
+          "version": "0.1.0",
+          "releasedAt": "2026-11-27",
+          "artifacts": [
+            {
+              "target": "universal",
+              "url": "https://raw.githubusercontent.com/1316584746/M-Market/HEAD/packages/modsearch-0.1.0.dbxp",
+              "sha256": "43feb1a6fd28feceddb9121dc700154c4f5e312edd0b6b84915366b0aafb08de",
+              "size": 44941
+            }
+          ]
+        }
+      ],
+      "localizations": {
+        "zh-CN": {
+          "name": "modsearch",
+          "description": "给 AI 联网搜索和读网页：多个引擎自动故障转移，开箱即用、不用注册。支持多 key 轮换、配额冷却、内网防护。移植自 liustack/modsearch。"
+        },
+        "en": {
+          "name": "modsearch",
+          "description": "Web search and page reading for the AI: several engines with automatic failover, working out of the box with no signup. Multi-key rotation, quota cooldown, private-network guard. A port of liustack/modsearch."
         }
       }
     }

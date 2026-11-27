@@ -112,7 +112,8 @@ describe("context-insight 0.2：洞察总览", () => {
     assert.deepEqual(new Set(o.tools.map(x => x.name)), new Set(["use_skill", "read_file", "run_command"]));
     assert.ok(o.commands.some(c => c.name === "npm"));
     assert.ok(o.comp.skill > 0 && o.comp.toolcalls > 0 && o.comp.system > 0 && o.comp.answers > 0);
-    assert.equal(o.comp.reasoning, 0);
+    // 外部 Agent 的 thinking 进度行按估算计入 reasoning（夹具里有 1 个 cursor-sdk 会话）
+    assert.ok(o.comp.reasoning > 0);
   });
 
   it("7 天范围包含估算的会话；30 天一致", async () => {
